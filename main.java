@@ -24,13 +24,11 @@ class Player {
             int zoneId = in.nextInt(); // this zone's ID (between 0 and zoneCount-1)
             int platinumSource = in.nextInt(); // Because of the fog, will always be 0
             tiles.put(zoneId,new Tile(zoneId,platinumSource));
-            System.err.println(zoneId);
         }
         System.err.println("___________________________");
         for (int i = 0; i < linkCount; i++) {
             int zone1 = in.nextInt();
             int zone2 = in.nextInt();
-            System.err.println(zone1);
             tiles.get(zone1).addLinkedTile(zone2);
             tiles.get(zone2).addLinkedTile(zone1);
         }
@@ -57,11 +55,24 @@ class Player {
 
             // Write an action using System.out.println()
             // To debug: System.err.println("Debug messages...");
-
-
+            String order = "";
+            for(int i=0;i<zoneCount;i++) {
+                if(tiles.get(i).myUnits>0)
+                {
+                    for(int k=0; k<tiles.get(i).myUnits; k++)
+                    {
+                        List<Integer> list = tiles.get(i).linkedTiles;
+                        Integer[] arr = list.toArray(new Integer[list.size()]);
+                        //int[] list=tiles.get(i).linkedTiles.toArray(new Integer[tiles.get(i).linkedTiles.size()]);
+                        Random rand = new Random(); 
+                        int j=arr[rand.nextInt(list.size())];
+                        order+="1 "+Integer.toString(i)+" "+Integer.toString(j)+" ";
+                    }
+                }
+            }
             // first line for movement commands, second line no longer used (see the protocol in the statement for details)
             
-            System.out.println("WAIT");
+            System.out.println(order);
             System.out.println("WAIT");
         }
     }
