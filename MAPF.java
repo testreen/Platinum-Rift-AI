@@ -81,28 +81,33 @@ class Player {
                 if(tiles.get(i).myUnits>0){
                     List<Integer> list = tiles.get(i).linkedTiles;
                     List<Integer> next = new ArrayList<Integer>();
+                    List<Float> probs = new ArrayList<Float>();
                     Integer[] arr = list.toArray(new Integer[list.size()]);
                     Random rand = new Random();
-                    int j = arr[rand.nextInt(list.size())];
-                    next.add(i);
+
                     float sum = 0;
                     int units = tiles.get(i).myUnits;
-                    List<Float> probs = new ArrayList<Float>();
+
                     probs.add(tiles.get(i).charge);
-
+                    System.err.println(tiles.get(i).charge);
                     for(int l=0; l < list.size(); l++){
-                        next.add(arr[l]);
-                        probs.add(tiles.get(arr[l]).charge);
-                        sum += tiles.get(arr[l]).charge;
-                    }
-                    for(int m = 0; m < next.size(); m++){
-                        probs.get(m) = (int) Math.round(props.get(m) * tiles.get(i).myUnits / sum);
-                        if(probs.get(m) > 0 && units - probs.get(m) > -1) {
-                            order += probs.get(m) + " " + Integer.toString(i) + " " + Integer.toString(next.get(m)) + " ";
+                        if(tiles.get(arr[l]).charge > 0){
+                            next.add(arr[l]);
+                            probs.add(tiles.get(arr[l]).charge);
+                            sum += tiles.get(arr[l]).charge;
                         }
-                        units -= probs.get(m);
                     }
 
+                    for(int k = 0; k < tiles.get(i).myUnits; k++){
+                        int j;
+                        if(next.size() > 0){
+                            j = next.get(rand.nextInt(next.size()));
+                        } else {
+                            j = list.get(rand.nextInt(list.size()));
+                        }
+                        order += "1 " + Integer.toString(i) + " " + Integer.toString(j) + " ";
+
+                    }
                 }
             }
 
@@ -113,7 +118,7 @@ class Player {
 
     public static void updateScores(HashMap<Integer, Tile> tiles, int zoneCount, int myId){
         for(int i = 0; i < zoneCount; i++){
-            spreadField(tiles, i, myId, 2);
+            spreadField(tiles, i, myId, 6);
         }
     }
 
@@ -196,23 +201,23 @@ class Tile {
     private float initialCharge(){
         float sum = 0;
         if(this.myHQ){
-            sum -= 40;
+            sum -= 50;
         } else if(this.enemyHQ){
             sum += 40;
         }
 
-        sum += 2 * this.myUnits;
+        sum -= 4 * this.myUnits;
         sum += 5 * this.enemyUnits;
 
         if(this.ownerId == -1){
-            sum += 5;
+            sum += 20;
         } else if(this.ownerId == this.myId){
-            sum -= 5;
+            sum -= 20;
         } else {
-            sum += 10;
+            sum += 20;
         }
 
-        sum += 2 * this.platinumSource;
+        sum += 4 * this.platinumSource;
 
         return sum;
     }
