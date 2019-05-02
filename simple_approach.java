@@ -36,6 +36,7 @@ class Player {
         }
 
         // game loop
+        boolean started = false;
         while (true) {
             int myPlatinum = in.nextInt(); // your available Platinum
             for (int i = 0; i < zoneCount; i++) {
@@ -57,8 +58,8 @@ class Player {
             }
 
 
-            int started = false;
-            if(!started) {
+
+            if(started == false) {
                 for (int i = 0; i < zoneCount; i++) {
                     List<Integer> list = tiles.get(i).linkedTiles;
                     boolean enemyStart = true;
@@ -68,6 +69,7 @@ class Player {
                         }
                     }
                 }
+                started = true;
             }
 
             // Write an action using System.out.println()
@@ -169,8 +171,8 @@ class Player {
             }
         }
     }
-
 }
+
 
 
 class Tile {
