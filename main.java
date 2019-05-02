@@ -13,7 +13,7 @@ import java.util.ArrayList; // import the ArrayList class
 class Player {
 
     public static void main(String args[]) {
-        
+
         HashMap<Integer, Tile> tiles = new HashMap<Integer, Tile>();
         Scanner in = new Scanner(System.in);
         int playerCount = in.nextInt(); // the amount of players (always 2)
@@ -62,16 +62,29 @@ class Player {
                     for(int k=0; k<tiles.get(i).myUnits; k++)
                     {
                         List<Integer> list = tiles.get(i).linkedTiles;
+                        List<Integer> unexplored = new ArrayList<Integer>();
                         Integer[] arr = list.toArray(new Integer[list.size()]);
+                        Random rand = new Random();
+                        int j = arr[rand.nextInt(list.size())];
+
+                        // Prioritize moving to not already owned cells nearby
+                        for(int l=0; l < list.size(); l++){
+                            if(tiles.get(list.get(l)).ownerId != myId){
+                                unexplored.add(arr[l]);
+                            }
+                        }
+                        if(unexplored.size() > 0){
+                            j = unexplored.get(rand.nextInt(unexplored.size()));
+                        }
+
                         //int[] list=tiles.get(i).linkedTiles.toArray(new Integer[tiles.get(i).linkedTiles.size()]);
-                        Random rand = new Random(); 
-                        int j=arr[rand.nextInt(list.size())];
-                        order+="1 "+Integer.toString(i)+" "+Integer.toString(j)+" ";
+
+                        order += "1 " + Integer.toString(i) + " " + Integer.toString(j) + " ";
                     }
                 }
             }
             // first line for movement commands, second line no longer used (see the protocol in the statement for details)
-            
+
             System.out.println(order);
             System.out.println("WAIT");
         }
@@ -86,18 +99,18 @@ class Tile {
     int myUnits;
     int enemyUnits;
     int visible;
-    
-    
+
+
     public Tile(int id, int platinumSource){
         this.id=id;
         this.platinumSource=platinumSource;
-        
+
     }
-    
+
     public void addLinkedTile(int tile) {
         this.linkedTiles.add(tile);
     }
-    
+
     public void update(int ownerId, int myUnits, int enemyUnits, int visible, int platinum)
     {
         this.ownerId=ownerId;
