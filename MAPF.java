@@ -56,15 +56,16 @@ class Player {
 
             }
 
-        }
-        int started = false;
-        if(!started) {
-            for(int i = 0; i < zoneCount; i++){
-                List<Integer> list = tiles.get(i).linkedTiles;
-                boolean enemyStart = true;
-                for(int j = 0; j < list.size(); j++){
-                    if(tiles.get(i).ownerId == myId || tiles.get(list.get(j)).ownerId == tiles.get(i).ownerId){
-                        enemyStart = false;
+
+            int started = false;
+            if(!started) {
+                for (int i = 0; i < zoneCount; i++) {
+                    List<Integer> list = tiles.get(i).linkedTiles;
+                    boolean enemyStart = true;
+                    for (int j = 0; j < list.size(); j++) {
+                        if (tiles.get(i).ownerId == myId || tiles.get(list.get(j)).ownerId == tiles.get(i).ownerId) {
+                            enemyStart = false;
+                        }
                     }
                 }
             }
