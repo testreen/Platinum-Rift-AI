@@ -3,14 +3,14 @@ AI for playing Platinum Rift 2 (https://www.codingame.com/ide/puzzle/platinum-ri
 
 Multi-Agent Potential Fields:
 1) Identifying the objects
-    - Our own occupied tiles
-    - Unoccupied tiles
-    - Tiles occupied by enemy
-    - Our PODs
-    - Enemy PODs
-    - Platinum
-    - Our Headquarter
-    - Enemy Headquarter
+    - Our own occupied tiles (Updated every turn)
+    - Unoccupied tiles (Updated every turn)
+    - Tiles occupied by enemy (Can only be updated if visible)
+    - Our PODs (Updated every turn)
+    - Enemy PODs (Can only be updated if visible)
+    - Platinum (Static but can only be updated if visible)
+    - Our Headquarter (Can't identify after first round so needs to be saved)
+    - Enemy Headquarter (Can't identify after first round so needs to be saved)
 
 2) Identifying the fields
     - Defend our own headquarter
@@ -44,4 +44,5 @@ Multi-Agent Potential Fields:
 
 7) Fog of war considerations
     - Remember enemy positions
+    - Expand enemy positions through fog of war
     - Exploration

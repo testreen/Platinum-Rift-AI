@@ -14,6 +14,7 @@ class Player {
 
     public static void main(String args[]) {
 
+        // Read initial data
         HashMap<Integer, Tile> tiles = new HashMap<Integer, Tile>();
         Scanner in = new Scanner(System.in);
         int playerCount = in.nextInt(); // the amount of players (always 2)
@@ -23,7 +24,7 @@ class Player {
         for (int i = 0; i < zoneCount; i++) {
             int zoneId = in.nextInt(); // this zone's ID (between 0 and zoneCount-1)
             int platinumSource = in.nextInt(); // Because of the fog, will always be 0
-            tiles.put(zoneId, new Tile(zoneId,platinumSource));
+            tiles.put(zoneId, new Tile(zoneId, platinumSource, myId));
         }
         System.err.println("___________________________");
         for (int i = 0; i < linkCount; i++) {
@@ -33,10 +34,13 @@ class Player {
             tiles.get(zone2).addLinkedTile(zone1);
         }
 
-        // game loop
-        int turn = 0
+        // Game loop
+        int turn = 0;
         while (true) {
             turn++;
+            String order = "";
+
+            // Read turn data and update tiles
             int myPlatinum = in.nextInt(); // your available Platinum
             for (int i = 0; i < zoneCount; i++) {
                 int zId = in.nextInt(); // this zone's ID
@@ -45,81 +49,62 @@ class Player {
                 int podsP1 = in.nextInt(); // player 1's PODs on this zone
                 int visible = in.nextInt(); // 1 if one of your units can see this tile, else 0
                 int platinum = in.nextInt(); // the amount of Platinum this zone can provide (0 if hidden by fog)
-                if(myId==1)
-                {
+
+                if(myId==1) {
                     tiles.get(zId).update(ownerId,podsP1,podsP0,visible,platinum);
                 }
-                else
-                {
+                else {
                     tiles.get(zId).update(ownerId,podsP0,podsP1,visible,platinum);
                 }
 
             }
 
-
-            int started = false;
-            if(!started) {
+            // Do turn 1 stuff (find headquarters)
+            if(turn == 1){
                 for (int i = 0; i < zoneCount; i++) {
-                    List<Integer> list = tiles.get(i).linkedTiles;
-                    boolean enemyStart = true;
-                    for (int j = 0; j < list.size(); j++) {
-                        if (tiles.get(i).ownerId == myId || tiles.get(list.get(j)).ownerId == tiles.get(i).ownerId) {
-                            enemyStart = false;
-                        }
+                    if(tiles.get(i).ownerId == myId){
+                        tiles.get(i).myHQ = true;
+                    } else if (tiles.get(i).ownerId != -1){
+                        tiles.get(i).enemyHQ = true;
                     }
                 }
             }
 
-            // Write an action using System.out.println()
-            // To debug: System.err.println("Debug messages...");
-            String order = "";
+            // Expand enemy towards not visible areas
+            expandEnemy(tiles, zoneCount, myId);
+
+            // Calculate field values spread over other tiles
             updateScores(tiles, zoneCount, myId);
-            for(int i=0;i<zoneCount;i++) {
-                //System.err.println("i: " + i + " score: " + tiles.get(i).score);
-                if(tiles.get(i).myUnits>0)
-                {
-                    for(int k=0; k<tiles.get(i).myUnits; k++)
-                    {
-                        List<Integer> list = tiles.get(i).linkedTiles;
-                        List<Integer> next = new ArrayList<Integer>();
-                        Integer[] arr = list.toArray(new Integer[list.size()]);
-                        Random rand = new Random();
-                        int j = arr[rand.nextInt(list.size())];
-                        int bestScore = tiles.get(i).score;
-                        int bestId = i;
-                        next.add(i);
 
-                        // Prioritize moving to not already owned cells nearby
-                        for(int l=0; l < list.size(); l++){
-                            //System.err.println(list.get(l));
+            // Move PODs
+            for(int i=0;i<zoneCount;i++){
+                if(tiles.get(i).myUnits>0){
+                    List<Integer> list = tiles.get(i).linkedTiles;
+                    List<Integer> next = new ArrayList<Integer>();
+                    Integer[] arr = list.toArray(new Integer[list.size()]);
+                    Random rand = new Random();
+                    int j = arr[rand.nextInt(list.size())];
+                    next.add(i);
+                    float sum = 0;
+                    int units = tiles.get(i).myUnits;
+                    List<Float> probs = new ArrayList<Float>();
+                    probs.add(tiles.get(i).charge);
 
-                            if(tiles.get(list.get(l)).score > bestScore){
-                                bestScore = tiles.get(list.get(l)).score;
-                                bestId = list.get(l);
-                                next = new ArrayList<Integer>();
-                                next.add(arr[l]);
-                            } else if(tiles.get(list.get(l)).score == bestScore){
-                                next.add(arr[l]);
-                            }
-
-                        }
-                        if(next.size() > 0){
-                            j = next.get(rand.nextInt(next.size()));
-                            //j = next.get(0);
-                        }
-
-                        //int[] list=tiles.get(i).linkedTiles.toArray(new Integer[tiles.get(i).linkedTiles.size()]);
-                        if(tiles.get(j).enemyUnits > 0 && tiles.get(i).myUnits < tiles.get(j).enemyUnits) {
-                            if(rand.nextInt(tiles.get(i).myUnits) > 1){
-                                order += "1 " + Integer.toString(i) + " " + Integer.toString(j) + " ";
-                            }
-                        } else {
-                            order += "1 " + Integer.toString(i) + " " + Integer.toString(j) + " ";
-                        }
+                    for(int l=0; l < list.size(); l++){
+                        next.add(arr[l]);
+                        probs.add(tiles.get(arr[l]).charge);
+                        sum += tiles.get(arr[l]).charge;
                     }
+                    for(int m = 0; m < next.size(); m++){
+                        probs.get(m) = (int) Math.round(props.get(m) * tiles.get(i).myUnits / sum);
+                        if(probs.get(m) > 0 && units - probs.get(m) > -1) {
+                            order += probs.get(m) + " " + Integer.toString(i) + " " + Integer.toString(next.get(m)) + " ";
+                        }
+                        units -= probs.get(m);
+                    }
+
                 }
             }
-            // first line for movement commands, second line no longer used (see the protocol in the statement for details)
 
             System.out.println(order);
             System.out.println("WAIT");
@@ -128,79 +113,66 @@ class Player {
 
     public static void updateScores(HashMap<Integer, Tile> tiles, int zoneCount, int myId){
         for(int i = 0; i < zoneCount; i++){
-            List<Integer> near = tiles.get(i).linkedTiles;
-            boolean frontline = false;
-            for(int j = 0; j < near.size(); j++){
-                if(tiles.get(i).ownerId != myId && tiles.get(near.get(j)).ownerId == myId){
-                    frontline = true;
-                }
-            }
-            if(frontline){
-                if(tiles.get(i).ownerId != myId){
-                    tiles.get(i).frontline = true;
-                }
-                if(tiles.get(i).ownerId == -1){
-                    tiles.get(i).score += 50;
-                } else {
-                    tiles.get(i).score += 50; // Change to score based on distance to headquarters?
-                }
-            } else {
-                tiles.get(i).frontline = false;
-            }
-        }
-
-        for(int i = 0; i < zoneCount; i++){
-
-            if(tiles.get(i).frontline && tiles.get(i).ownerId != myId){
-                spreadFront(tiles, i, tiles.get(i).score, myId);
-            }
+            spreadField(tiles, i, myId, 2);
         }
     }
 
-    public static void spreadFront(HashMap<Integer, Tile> tiles, int id, int score, int myId){
-        List<Integer> near = tiles.get(id).linkedTiles;
+    public static void spreadField(HashMap<Integer, Tile> tiles, int zId, int myId, int depth){
+        if(depth == 0){
+            return;
+        }
+        List<Integer> near = tiles.get(zId).linkedTiles;
+        float spread = tiles.get(zId).charge / 10;
+        tiles.get(zId).charge -= spread;
         for(int i = 0; i < near.size(); i++){
-            //System.err.println("id: " + id);
-            //System.err.println("score: " + score);
-            //System.err.println("near id: " + tiles.get(near.get(i)).id);
-            //System.err.println("near score: " + tiles.get(near.get(i)).score);
-            if(tiles.get(near.get(i)).score < score && tiles.get(near.get(i)).ownerId == myId){
-                tiles.get(near.get(i)).score = score - 1;
-                spreadFront(tiles, near.get(i), score - 1, myId);
-            }
+            tiles.get(near.get(i)).charge += spread / near.size();
+        }
+        for(int i = 0; i < near.size(); i++){
+            spreadField(tiles, near.get(i), myId, depth - 1);
         }
     }
 
-    public static void spreadStart(
+    // Expand enemy into not visible areas
+    public static void expandEnemy(HashMap<Integer, Tile> tiles, int zoneCount, int myId){
+        int enemyId;
+        if(myId == 0){
+            enemyId = 1;
+        } else {
+            enemyId = 0;
+        }
+        for(int i = 0; i < zoneCount; i++){
+            if(tiles.get(i).visible == 0){
+                List<Integer> near = tiles.get(i).linkedTiles;
+                for(int j = 0; j < near.size(); j++){
+                    if(tiles.get(near.get(j)).ownerId != myId && tiles.get(near.get(j)).ownerId != -1){
+                        tiles.get(i).ownerId = enemyId;
+                    }
+                }
+            }
+        }
+    }
 }
 
-// 1) Identifying the objects
-//        - Our own occupied tiles
-//        - Unoccupied tiles
-//        - Tiles occupied by enemy
-//        - Our PODs
-//        - Enemy PODs
-//        - Platinum
-//        - Our Headquarter
-//        - Enemy Headquarter
 
 class Tile {
     public int id;
     public int platinumSource;
     public ArrayList<Integer> linkedTiles = new ArrayList<Integer>();
     int ownerId = -1;
-    int myUnits;
-    int enemyUnits;
-    int visible;
-    int score = 0;
+    int myUnits = 0;
+    int enemyUnits = 0;
+    int visible = 0;
+    float charge = 0;
+    int myId = 0;
     boolean frontline = false;
-    int startScore = 0;
+    boolean enemyHQ = false;
+    boolean myHQ = false;
 
 
-    public Tile(int id, int platinumSource){
-        this.id=id;
-        this.platinumSource=platinumSource;
-
+    public Tile(int id, int platinumSource, int myId){
+        this.id = id;
+        this.platinumSource = platinumSource;
+        this.myId = myId;
     }
 
     public void addLinkedTile(int tile) {
@@ -210,14 +182,40 @@ class Tile {
     public void update(int ownerId, int myUnits, int enemyUnits, int visible, int platinum)
     {
         if(visible == 1){
-            this.ownerId=ownerId;
-            this.enemyUnits=enemyUnits;
-            this.platinumSource=platinum;
+            this.ownerId = ownerId;
+            this.enemyUnits = enemyUnits;
+            this.platinumSource = platinum;
         }
-        this.myUnits=myUnits;
-        this.visible=visible;
+        this.myUnits = myUnits;
+        this.visible = visible;
 
-        this.score = startScore;
-        this.frontline = false;
+        // Reset charge to only be affected by own values
+        this.charge = initialCharge();
     }
+
+    private float initialCharge(){
+        float sum = 0;
+        if(this.myHQ){
+            sum -= 40;
+        } else if(this.enemyHQ){
+            sum += 40;
+        }
+
+        sum += 2 * this.myUnits;
+        sum += 5 * this.enemyUnits;
+
+        if(this.ownerId == -1){
+            sum += 5;
+        } else if(this.ownerId == this.myId){
+            sum -= 5;
+        } else {
+            sum += 10;
+        }
+
+        sum += 2 * this.platinumSource;
+
+        return sum;
+    }
+
+
 }
