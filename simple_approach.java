@@ -9,6 +9,8 @@ import java.util.ArrayList; // import the ArrayList class
 /**
  * Auto-generated code below aims at helping you parse
  * the standard input according to the problem statement.
+ *
+ * Best rank around 300
  **/
 class Player {
 
@@ -54,15 +56,16 @@ class Player {
 
             }
 
-        }
-        int started = false;
-        if(!started) {
-            for(int i = 0; i < zoneCount; i++){
-                List<Integer> list = tiles.get(i).linkedTiles;
-                boolean enemyStart = true;
-                for(int j = 0; j < list.size(); j++){
-                    if(tiles.get(i).ownerId == myId || tiles.get(list.get(j)).ownerId == tiles.get(i).ownerId){
-                        enemyStart = false;
+
+            int started = false;
+            if(!started) {
+                for (int i = 0; i < zoneCount; i++) {
+                    List<Integer> list = tiles.get(i).linkedTiles;
+                    boolean enemyStart = true;
+                    for (int j = 0; j < list.size(); j++) {
+                        if (tiles.get(i).ownerId == myId || tiles.get(list.get(j)).ownerId == tiles.get(i).ownerId) {
+                            enemyStart = false;
+                        }
                     }
                 }
             }
@@ -71,12 +74,10 @@ class Player {
             // To debug: System.err.println("Debug messages...");
             String order = "";
             updateScores(tiles, zoneCount, myId);
-            for(int i=0;i<zoneCount;i++) {
+            for (int i = 0; i < zoneCount; i++) {
                 //System.err.println("i: " + i + " score: " + tiles.get(i).score);
-                if(tiles.get(i).myUnits>0)
-                {
-                    for(int k=0; k<tiles.get(i).myUnits; k++)
-                    {
+                if (tiles.get(i).myUnits > 0) {
+                    for (int k = 0; k < tiles.get(i).myUnits; k++) {
                         List<Integer> list = tiles.get(i).linkedTiles;
                         List<Integer> next = new ArrayList<Integer>();
                         Integer[] arr = list.toArray(new Integer[list.size()]);
@@ -87,33 +88,34 @@ class Player {
                         next.add(i);
 
                         // Prioritize moving to not already owned cells nearby
-                        for(int l=0; l < list.size(); l++){
+                        for (int l = 0; l < list.size(); l++) {
                             //System.err.println(list.get(l));
 
-                            if(tiles.get(list.get(l)).score > bestScore){
+                            if (tiles.get(list.get(l)).score > bestScore) {
                                 bestScore = tiles.get(list.get(l)).score;
                                 bestId = list.get(l);
                                 next = new ArrayList<Integer>();
                                 next.add(arr[l]);
-                            } else if(tiles.get(list.get(l)).score == bestScore){
+                            } else if (tiles.get(list.get(l)).score == bestScore) {
                                 next.add(arr[l]);
                             }
 
                         }
-                        if(next.size() > 0){
+                        if (next.size() > 0) {
                             j = next.get(rand.nextInt(next.size()));
                             //j = next.get(0);
                         }
 
                         //int[] list=tiles.get(i).linkedTiles.toArray(new Integer[tiles.get(i).linkedTiles.size()]);
-                        if(tiles.get(j).enemyUnits > 0 && tiles.get(i).myUnits < tiles.get(j).enemyUnits) {
-                            if(rand.nextInt(tiles.get(i).myUnits) > 1){
+                        if (tiles.get(j).enemyUnits > 0 && tiles.get(i).myUnits < tiles.get(j).enemyUnits) {
+                            if (rand.nextInt(tiles.get(i).myUnits) > 1) {
                                 order += "1 " + Integer.toString(i) + " " + Integer.toString(j) + " ";
                             }
                         } else {
                             order += "1 " + Integer.toString(i) + " " + Integer.toString(j) + " ";
                         }
                     }
+
                 }
             }
             // first line for movement commands, second line no longer used (see the protocol in the statement for details)
@@ -171,6 +173,7 @@ class Player {
     public static void spreadStart(
 }
 
+
 class Tile {
     public int id;
     public int platinumSource;
@@ -198,11 +201,12 @@ class Tile {
     {
         if(visible == 1){
             this.ownerId=ownerId;
+            this.enemyUnits=enemyUnits;
+            this.platinumSource=platinum;
         }
         this.myUnits=myUnits;
-        this.enemyUnits=enemyUnits;
         this.visible=visible;
-        this.platinumSource=platinum;
+
         this.score = startScore;
         this.frontline = false;
     }
