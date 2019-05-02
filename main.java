@@ -31,7 +31,6 @@ class Player {
             int zone2 = in.nextInt();
             tiles.get(zone1).addLinkedTile(zone2);
             tiles.get(zone2).addLinkedTile(zone1);
-            System.err.println("z1: " + zone1 + " z2: " + zone2);
         }
 
         // game loop
@@ -52,8 +51,19 @@ class Player {
                 {
                     tiles.get(zId).update(ownerId,podsP0,podsP1,visible,platinum);
                 }
-                if(zId == 0){
-                    System.err.println("i: " + i + "zId: " + zId + "owner: " + ownerId + "vis: " + visible);
+
+            }
+
+        }
+        int started = false;
+        if(!started) {
+            for(int i = 0; i < zoneCount; i++){
+                List<Integer> list = tiles.get(i).linkedTiles;
+                boolean enemyStart = true;
+                for(int j = 0; j < list.size(); j++){
+                    if(tiles.get(i).ownerId == myId || tiles.get(list.get(j)).ownerId == tiles.get(i).ownerId){
+                        enemyStart = false;
+                    }
                 }
             }
 
@@ -96,8 +106,8 @@ class Player {
                         }
 
                         //int[] list=tiles.get(i).linkedTiles.toArray(new Integer[tiles.get(i).linkedTiles.size()]);
-                        if(tiles.get(j).enemyUnits > 0){
-                            if(rand.nextInt(tiles.get(i).myUnits) > tiles.get(j).enemyUnits){
+                        if(tiles.get(j).enemyUnits > 0 && tiles.get(i).myUnits < tiles.get(j).enemyUnits) {
+                            if(rand.nextInt(tiles.get(i).myUnits) > 1){
                                 order += "1 " + Integer.toString(i) + " " + Integer.toString(j) + " ";
                             }
                         } else {
@@ -127,9 +137,9 @@ class Player {
                     tiles.get(i).frontline = true;
                 }
                 if(tiles.get(i).ownerId == -1){
-                    tiles.get(i).score = 49;
+                    tiles.get(i).score += 50;
                 } else {
-                    tiles.get(i).score = 50; // Change to score based on distance to headquarters?
+                    tiles.get(i).score += 50; // Change to score based on distance to headquarters?
                 }
             } else {
                 tiles.get(i).frontline = false;
@@ -139,14 +149,12 @@ class Player {
         for(int i = 0; i < zoneCount; i++){
 
             if(tiles.get(i).frontline && tiles.get(i).ownerId != myId){
-                System.err.println(i + " " + tiles.get(i).ownerId);
-
-                spreadScores(tiles, i, tiles.get(i).score, myId);
+                spreadFront(tiles, i, tiles.get(i).score, myId);
             }
         }
     }
 
-    public static void spreadScores(HashMap<Integer, Tile> tiles, int id, int score, int myId){
+    public static void spreadFront(HashMap<Integer, Tile> tiles, int id, int score, int myId){
         List<Integer> near = tiles.get(id).linkedTiles;
         for(int i = 0; i < near.size(); i++){
             //System.err.println("id: " + id);
@@ -155,10 +163,12 @@ class Player {
             //System.err.println("near score: " + tiles.get(near.get(i)).score);
             if(tiles.get(near.get(i)).score < score && tiles.get(near.get(i)).ownerId == myId){
                 tiles.get(near.get(i)).score = score - 1;
-                spreadScores(tiles, near.get(i), score - 1, myId);
+                spreadFront(tiles, near.get(i), score - 1, myId);
             }
         }
     }
+
+    public static void spreadStart(
 }
 
 class Tile {
@@ -171,6 +181,7 @@ class Tile {
     int visible;
     int score = 0;
     boolean frontline = false;
+    int startScore = 0;
 
 
     public Tile(int id, int platinumSource){
@@ -192,7 +203,7 @@ class Tile {
         this.enemyUnits=enemyUnits;
         this.visible=visible;
         this.platinumSource=platinum;
-        this.score = 0;
+        this.score = startScore;
         this.frontline = false;
     }
 }
