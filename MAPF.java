@@ -70,6 +70,7 @@ class Player {
                 }
             }
 
+
             // Expand enemy towards not visible areas
             expandEnemy(tiles, zoneCount, myId);
 
@@ -85,28 +86,56 @@ class Player {
                     Integer[] arr = list.toArray(new Integer[list.size()]);
                     Random rand = new Random();
 
-                    float sum = 0;
+                    float bestScore = -1000;
+                    int bestId = i;
                     int units = tiles.get(i).myUnits;
-
-                    probs.add(tiles.get(i).charge);
-                    System.err.println(tiles.get(i).charge);
-                    for(int l=0; l < list.size(); l++){
-                        if(tiles.get(arr[l]).charge > 0){
-                            next.add(arr[l]);
-                            probs.add(tiles.get(arr[l]).charge);
-                            sum += tiles.get(arr[l]).charge;
-                        }
+                    next.add(i);
+                    if(tiles.get(i).myUnits > 10){
+                        next.add(list.get(0));
                     }
 
+                    probs.add(tiles.get(i).charge);
+                    for(int l=0; l < list.size(); l++){
+                        if (tiles.get(list.get(l)).ownerId != myId) {
+                            if(tiles.get(list.get(l)).enemyUnits > 1 && !tiles.get(list.get(l)).enemyHQ){
+                                for(int p=0; p < Math.min(4, tiles.get(list.get(l)).enemyUnits); p++){
+                                    next.add(i);
+                                }
+                            }
+                            next.add(arr[l]);
+                        }
+                        if (tiles.get(list.get(l)).total_score > bestScore) {
+                            if(tiles.get(i).myUnits > 10){
+                                next.set(1, next.get(0));
+                            }
+                            bestScore = tiles.get(list.get(l)).total_score;
+                            bestId = list.get(l);
+                            next.set(0, arr[l]);
+                        } else if (tiles.get(list.get(l)).total_score > bestScore - 10) {
+                            next.add(arr[l]);
+                        }
+
+                    }
                     for(int k = 0; k < tiles.get(i).myUnits; k++){
                         int j;
-                        if(next.size() > 0){
-                            j = next.get(rand.nextInt(next.size()));
-                        } else {
-                            j = list.get(rand.nextInt(list.size()));
+                        if(tiles.get(i).myUnits == 1 && next.size() > 1){
+                            j = next.get(rand.nextInt(next.size() - 1) + 1);
                         }
-                        order += "1 " + Integer.toString(i) + " " + Integer.toString(j) + " ";
+                        else if(k > next.size() - 1){
+                            if(k % 10 == 8){
+                                j = next.get(0);
+                            } else {
+                                j = next.get(0);
+                            }
+                        } else {
 
+                            j = next.get(k);
+                        }
+                        //System.err.println(k + " " + j + " " + tiles.get(j).total_score);
+                        if(i != j){
+
+                            order += "1 " + Integer.toString(i) + " " + Integer.toString(j) + " ";
+                        }
                     }
                 }
             }
@@ -118,22 +147,26 @@ class Player {
 
     public static void updateScores(HashMap<Integer, Tile> tiles, int zoneCount, int myId){
         for(int i = 0; i < zoneCount; i++){
-            spreadField(tiles, i, myId, 6);
+            spreadField(tiles, i, myId, 25, tiles.get(i).charge);
+            for(int j = 0; j < zoneCount; j++){
+                tiles.get(j).total_score += tiles.get(j).current_score;
+                tiles.get(j).current_score = 0;
+            }
         }
+
     }
 
-    public static void spreadField(HashMap<Integer, Tile> tiles, int zId, int myId, int depth){
+    public static void spreadField(HashMap<Integer, Tile> tiles, int zId, int myId, int depth, float curr_charge){
         if(depth == 0){
             return;
         }
         List<Integer> near = tiles.get(zId).linkedTiles;
-        float spread = tiles.get(zId).charge / 10;
-        tiles.get(zId).charge -= spread;
+        float spread = curr_charge * 0.8f;
         for(int i = 0; i < near.size(); i++){
-            tiles.get(near.get(i)).charge += spread / near.size();
-        }
-        for(int i = 0; i < near.size(); i++){
-            spreadField(tiles, near.get(i), myId, depth - 1);
+            if(tiles.get(near.get(i)).current_score < spread){
+                tiles.get(near.get(i)).current_score = spread;
+                spreadField(tiles, near.get(i), myId, depth - 1, spread);
+            }
         }
     }
 
@@ -145,15 +178,19 @@ class Player {
         } else {
             enemyId = 0;
         }
+        List<Integer> change = new ArrayList<Integer>();
         for(int i = 0; i < zoneCount; i++){
             if(tiles.get(i).visible == 0){
                 List<Integer> near = tiles.get(i).linkedTiles;
                 for(int j = 0; j < near.size(); j++){
                     if(tiles.get(near.get(j)).ownerId != myId && tiles.get(near.get(j)).ownerId != -1){
-                        tiles.get(i).ownerId = enemyId;
+                        change.add(i);
                     }
                 }
             }
+        }
+        for(int i = 0; i < change.size(); i++){
+            tiles.get(change.get(i)).ownerId = enemyId;
         }
     }
 }
@@ -172,6 +209,8 @@ class Tile {
     boolean frontline = false;
     boolean enemyHQ = false;
     boolean myHQ = false;
+    float current_score = 0;
+    float total_score = 0;
 
 
     public Tile(int id, int platinumSource, int myId){
@@ -196,28 +235,32 @@ class Tile {
 
         // Reset charge to only be affected by own values
         this.charge = initialCharge();
+        this.current_score = 0;
+        this.total_score = 0;
     }
 
     private float initialCharge(){
         float sum = 0;
         if(this.myHQ){
-            sum -= 50;
+            sum -= 200;
         } else if(this.enemyHQ){
-            sum += 40;
+            sum += 1000;
         }
 
-        sum -= 4 * this.myUnits;
-        sum += 5 * this.enemyUnits;
+        sum -= 0 * this.myUnits;
+        sum += 10 * this.enemyUnits;
 
         if(this.ownerId == -1){
-            sum += 20;
+            sum += 25;
+            sum += 50 * this.platinumSource;
         } else if(this.ownerId == this.myId){
-            sum -= 20;
+            sum -= 100;
         } else {
-            sum += 20;
+            sum += 200;
+            sum += 20 * this.platinumSource;
         }
 
-        sum += 4 * this.platinumSource;
+
 
         return sum;
     }

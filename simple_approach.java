@@ -75,6 +75,7 @@ class Player {
             // Write an action using System.out.println()
             // To debug: System.err.println("Debug messages...");
             String order = "";
+            expandEnemy(tiles, zoneCount, myId);
             updateScores(tiles, zoneCount, myId);
             for (int i = 0; i < zoneCount; i++) {
                 //System.err.println("i: " + i + " score: " + tiles.get(i).score);
@@ -140,10 +141,10 @@ class Player {
                 if(tiles.get(i).ownerId != myId){
                     tiles.get(i).frontline = true;
                 }
-                if(tiles.get(i).ownerId == -1){
-                    tiles.get(i).score += 50;
+                if(tiles.get(i).ownerId == -1) {
+                    tiles.get(i).score += 52 + tiles.get(i).platinumSource;
                 } else {
-                    tiles.get(i).score += 50; // Change to score based on distance to headquarters?
+                    tiles.get(i).score += 25 + tiles.get(i).platinumSource; // Change to score based on distance to headquarters?
                 }
             } else {
                 tiles.get(i).frontline = false;
@@ -168,6 +169,26 @@ class Player {
             if(tiles.get(near.get(i)).score < score && tiles.get(near.get(i)).ownerId == myId){
                 tiles.get(near.get(i)).score = score - 1;
                 spreadFront(tiles, near.get(i), score - 1, myId);
+            }
+        }
+    }
+
+    // Expand enemy into not visible areas
+    public static void expandEnemy(HashMap<Integer, Tile> tiles, int zoneCount, int myId){
+        int enemyId;
+        if(myId == 0){
+            enemyId = 1;
+        } else {
+            enemyId = 0;
+        }
+        for(int i = 0; i < zoneCount; i++){
+            if(tiles.get(i).visible == 0){
+                List<Integer> near = tiles.get(i).linkedTiles;
+                for(int j = 0; j < near.size(); j++){
+                    if(tiles.get(near.get(j)).ownerId != myId && tiles.get(near.get(j)).ownerId != -1){
+                        tiles.get(i).ownerId = enemyId;
+                    }
+                }
             }
         }
     }
