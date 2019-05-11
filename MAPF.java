@@ -50,6 +50,15 @@ class Player {
                 int visible = in.nextInt(); // 1 if one of your units can see this tile, else 0
                 int platinum = in.nextInt(); // the amount of Platinum this zone can provide (0 if hidden by fog)
 
+                // Do turn 1 stuff (find headquarters)
+                if(turn == 1){
+                    if(tiles.get(i).ownerId == myId){
+                        tiles.get(i).myHQ = true;
+                    } else if (tiles.get(i).ownerId != -1){
+                        tiles.get(i).enemyHQ = true;
+                    }
+                }
+
                 if(myId==1) {
                     tiles.get(zId).update(ownerId,podsP1,podsP0,visible,platinum);
                 }
@@ -59,23 +68,11 @@ class Player {
 
             }
 
-            // Do turn 1 stuff (find headquarters)
-            if(turn == 1){
-                for (int i = 0; i < zoneCount; i++) {
-                    if(tiles.get(i).ownerId == myId){
-                        tiles.get(i).myHQ = true;
-                    } else if (tiles.get(i).ownerId != -1){
-                        tiles.get(i).enemyHQ = true;
-                    }
-                }
-            }
-
-
             // Expand enemy towards not visible areas
             expandEnemy(tiles, zoneCount, myId);
 
             // Calculate field values spread over other tiles
-            updateScores(tiles, zoneCount, myId);
+            updateFields(tiles, zoneCount, myId);
 
             // Move PODs
             for(int i=0;i<zoneCount;i++){
@@ -89,7 +86,7 @@ class Player {
                     float bestScore = tiles.get(i).total_score;
                     int bestId = i;
                     int units = tiles.get(i).myUnits;
-
+                    next.add(i);
                     // if > 10 units, save 2nd best tile too
                     if(tiles.get(i).myUnits > 10){
                         next.add(i);
@@ -101,7 +98,7 @@ class Player {
                             // if enemy unit is close, leave up to 4 units to avoid getting passed
                             if(tiles.get(list.get(l)).enemyUnits > 1 && !tiles.get(list.get(l)).enemyHQ){
                                 for(int p=0; p < Math.min(4, tiles.get(list.get(l)).enemyUnits); p++){
-                                    next.add(i);
+                                    //next.add(i);
                                 }
                             }
                             // add not controlled area to list of moves
@@ -133,11 +130,10 @@ class Player {
                         else if(k > next.size() - 1){
                             j = next.get(0);
 
-                        // if forced move
+                            // if forced move
                         } else {
                             j = next.get(k);
                         }
-
                         // to avoid error if staying in same tile
                         if(i != j){
                             order += "1 " + Integer.toString(i) + " " + Integer.toString(j) + " ";
@@ -151,34 +147,26 @@ class Player {
         }
     }
 
-    public static void updateScores(HashMap<Integer, Tile> tiles, int zoneCount, int myId){
+    public static void updateFields(HashMap<Integer, Tile> tiles, int zoneCount, int myId){
+        float DECAY_TILES = -5f;
+        float DECAY_UNITS = -5f;
+
         for(int i = 0; i < zoneCount; i++){
-            spreadField(tiles, i, myId, 25, tiles.get(i).charge);
+            Tile currTile = tiles.get(i);
+            currTile.fieldTiles = new Field(tiles, currTile.chargeTiles, DECAY_TILES, i, myId, 5);
+            currTile.fieldUnits = new Field(tiles, currTile.chargeUnits, DECAY_UNITS, i, myId, 5);
 
             // add charges from field to total scores and reset values
             for(int j = 0; j < zoneCount; j++){
-                tiles.get(j).total_score += tiles.get(j).current_score;
-                tiles.get(j).current_score = 0;
+                if(currTile.fieldTiles.charges.containsKey(j)){
+                    tiles.get(j).total_score += currTile.fieldTiles.charges.get(j);
+                }
+                if(currTile.fieldUnits.charges.containsKey(j)){
+                    tiles.get(j).total_score += currTile.fieldUnits.charges.get(j);
+                }
             }
         }
 
-    }
-
-    public static void spreadField(HashMap<Integer, Tile> tiles, int zId, int myId, int depth, float curr_charge){
-        // exit recursive loop
-        if(depth == 0){
-            return;
-        }
-
-        List<Integer> near = tiles.get(zId).linkedTiles;
-        float spread = curr_charge * 0.8f; // score decay factor when spreading
-        for(int i = 0; i < near.size(); i++){
-            // if tile has not been optimally calculated yet, assign new score and spread further
-            if(tiles.get(near.get(i)).current_score < spread){
-                tiles.get(near.get(i)).current_score = spread;
-                spreadField(tiles, near.get(i), myId, depth - 1, spread);
-            }
-        }
     }
 
     // Expand enemy into not visible areas
@@ -218,11 +206,15 @@ class Tile {
     int visible = 0;
     float charge = 0;
     int myId = 0;
-    boolean frontline = false;
     boolean enemyHQ = false;
     boolean myHQ = false;
-    float current_score = 0;
     float total_score = 0;
+
+    float chargeTiles = 0;
+    float chargeUnits = 0;
+
+    public Field fieldTiles;
+    public Field fieldUnits;
 
 
     public Tile(int id, int platinumSource, int myId){
@@ -246,36 +238,66 @@ class Tile {
         this.visible = visible;
 
         // Reset charge to only be affected by own values
-        this.charge = initialCharge();
-        this.current_score = 0;
-        this.total_score = 0;
+        updateCharge();
     }
 
-    private float initialCharge(){
-        float sum = 0;
+    private void updateCharge(){
+        this.chargeTiles = 0;
+        this.chargeUnits = 0;
         if(this.myHQ){
-            sum -= 200;
+            this.chargeTiles -= 100;
         } else if(this.enemyHQ){
-            sum += 1000;
+            this.chargeTiles = 100;
         }
 
-        sum -= 0 * this.myUnits;
-        sum += 10 * this.enemyUnits;
+        this.chargeUnits -= 5f * this.myUnits;
+        this.chargeUnits += 5f * this.enemyUnits;
 
         if(this.ownerId == -1){
-            sum += 25;
-            sum += 50 * this.platinumSource;
+            this.chargeTiles += 20f;
+            this.chargeTiles += 2f * this.platinumSource;
         } else if(this.ownerId == this.myId){
-            sum -= 100;
+            this.chargeTiles -= 10f;
         } else {
-            sum += 200;
-            sum += 20 * this.platinumSource;
+            this.chargeTiles += 15f;
+            this.chargeTiles += 2f * this.platinumSource;
         }
 
 
+    }
+}
 
-        return sum;
+class Field {
+    float charge = 0f;
+    float decay = 1f;
+    int myId = 0;
+    HashMap<Integer, Tile> tiles = new HashMap<Integer, Tile>();
+    public HashMap<Integer, Float> charges = new HashMap<Integer, Float>();
+
+    public Field(HashMap<Integer, Tile> tiles, float charge, float decay, int zId, int myId, int range){
+        this.tiles = tiles;
+        this.charge = charge;
+        this.decay = decay;
+        this.myId = myId;
+        charges.put(zId, charge);
+        this.spread(tiles, zId, charge, myId, range);
     }
 
-
+    public void spread(HashMap<Integer, Tile> tiles, int id, float charge, int myId, int range){
+        if(range == 0){
+            return;
+        }
+        List<Integer> near = tiles.get(id).linkedTiles;
+        for(int i = 0; i < near.size(); i++){
+            if(charges.containsKey(tiles.get(near.get(i)))){
+                if(charges.get(near.get(i)) < charge - this.decay){
+                    charges.replace(near.get(i), charge - this.decay);
+                    this.spread(tiles, near.get(i), charge - this.decay, myId, range - 1);
+                }
+            } else {
+                charges.put(near.get(i), charge - this.decay);
+                this.spread(tiles, near.get(i), charge - this.decay, myId, range - 1);
+            }
+        }
+    }
 }
