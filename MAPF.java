@@ -219,6 +219,26 @@ class Tile {
         this.myId = myId;
     }
 
+    public static int getDistance(int z1, int z2,HashMap<Integer, Tile> tiles){
+        HashMap<Integer, Integer> distances = new HashMap<Integer, Integer>();
+        for (int i : tiles.keySet()) {
+            distances.put(i,1000);
+        }
+        distances.put(z1,0);
+        for (int i : tiles.keySet()) {
+            for (int j : tiles.keySet()) {
+                int min=distances.get(j);
+                for (int k : tiles.get(j).linkedTiles) {
+                    if ((distances.get(k)+1)<min) {
+                        min=distances.get(k)+1;
+                    }
+                }
+                distances.put(j,min);
+            }
+        }
+        return distances.get(z2);
+    }
+
     public void addLinkedTile(int tile) {
         this.linkedTiles.add(tile);
     }

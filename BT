@@ -8,13 +8,18 @@
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 class GameState {
-
+    public int myHQ=0;
+    public int theirHQ=0;
     public int nbExplorers=0;
     public int nbFighters=0;
+    public HashMap<Integer, Tile> tiles;
+    public int zoneCount;
 
 }
 
 class Unit {
+    public static int max_nb_explorer=10;
+
     public static final String Fighter = "fig";
     public static final String Explorer = "exp";
     public static GameState gameState;
@@ -121,6 +126,61 @@ class Sequence extends Node {
     }
 }
 
+
+//----------------------------------------------------------------------------
+// Nodes that are conditions
+
+class ShouldIExplore extends Node {
+    @java.lang.Override
+    public String run(Unit unit) {
+        //check if the number of explorers is too high (
+        if Unit.gameState.nbExplorers>Unit.max_nb_explorer && unit.role!=Unit.Explorer
+            return Node.Failure;
+        //check if the fighting fild has a higher value
+        // TO ADD !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        if false
+            return Node.Failure;
+        return Node.Success;
+    }
+}
+
+class ShouldWeRush extends Node {
+
+    @java.lang.Override
+    public String run(Unit unit) {
+        if Tile.getDistance(Unit.gameState.myHQ,Unit.gameState.theirHQ,tiles)<4
+            return Node.Success;
+        return Node.Failure;
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+//----------------------------------------------------------------------------
+// Nodes that are actions
+
+
+
+
+
+
+
+
+
+
+
+
+
+//----------------------------------------------------------------------------
+//  Test nodes
 class SNode extends Node {
     @java.lang.Override
     public String run(Unit unit) {
