@@ -14,7 +14,6 @@ class GameState {
     public int nbFighters=0;
     public HashMap<Integer, Tile> tiles;
     public int zoneCount;
-
 }
 
 class Unit {
@@ -22,6 +21,9 @@ class Unit {
 
     public static final String Fighter = "fig";
     public static final String Explorer = "exp";
+    
+    public static final String Fighter = "rusher";
+    public static final String Explorer = "defenser";
     public static GameState gameState;
 
     // behavior trees
@@ -149,6 +151,25 @@ class ShouldWeRush extends Node {
     @java.lang.Override
     public String run(Unit unit) {
         if Tile.getDistance(Unit.gameState.myHQ,Unit.gameState.theirHQ,tiles)<4
+            return Node.Success;
+        return Node.Failure;
+    }
+}
+
+
+class AmIInHQ extends Node {
+    @java.lang.Override
+    public String run(Unit unit) {
+        if (unit.position==Unit.gameState.myHQ)
+            return Node.Success;
+        return Node.Failure;
+    }
+}
+
+class EnemyCloseToHQ extends Node {
+    @java.lang.Override
+    public String run(Unit unit) {
+        if (unit.position==Unit.gameState.myHQ)
             return Node.Success;
         return Node.Failure;
     }
