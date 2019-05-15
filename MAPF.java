@@ -50,12 +50,15 @@ class Player {
                 int visible = in.nextInt(); // 1 if one of your units can see this tile, else 0
                 int platinum = in.nextInt(); // the amount of Platinum this zone can provide (0 if hidden by fog)
 
+
                 // Do turn 1 stuff (find headquarters)
                 if(turn == 1){
-                    if(tiles.get(i).ownerId == myId){
+                    if(ownerId == myId){
+                        tiles.get(i).calcDistances(tiles);
                         tiles.get(i).myHQ = true;
-                    } else if (tiles.get(i).ownerId != -1){
+                    } else if (ownerId != -1){
                         tiles.get(i).enemyHQ = true;
+
                     }
                 }
 
@@ -66,6 +69,11 @@ class Player {
                     tiles.get(zId).update(ownerId,podsP0,podsP1,visible,platinum);
                 }
 
+            }
+            if(turn == 1){
+                for(int i = 0; i < zoneCount; i++){
+                    tiles.get(i).calcDistances(tiles);
+                }
             }
 
             // Expand enemy towards not visible areas
@@ -200,6 +208,7 @@ class Tile {
     public int id;
     public int platinumSource;
     public ArrayList<Integer> linkedTiles = new ArrayList<Integer>();
+    public HashMap<Integer, Integer> distances = new HashMap<Integer, Integer>();
     int ownerId = -1;
     int myUnits = 0;
     int enemyUnits = 0;
@@ -209,6 +218,7 @@ class Tile {
     boolean enemyHQ = false;
     boolean myHQ = false;
     float total_score = 0;
+    int maxDistance = 5;
 
     float chargeTiles = 0;
     float chargeUnits = 0;
@@ -241,6 +251,35 @@ class Tile {
             }
         }
         return distances.get(z2);
+    }
+
+    public void calcDistances(HashMap<Integer, Tile> tiles){
+        boolean[] visited = new boolean[tiles.size()];
+
+
+        LinkedList<Integer> queue = new LinkedList<Integer>();
+
+        visited[this.id]=true;
+        queue.add(this.id);
+        distances.put(this.id, 0);
+        while(queue.size() != 0){
+            if(distances.size() == tiles.size()){
+                return;
+            }
+            int s = queue.poll();
+            int d = distances.get(s);
+            ArrayList<Integer> next = tiles.get(s).linkedTiles;
+            for(int i : next){
+                if(!visited[i]){
+                    visited[i] = true;
+                    distances.put(i, d + 1);
+                    tiles.get(i).distances.put(this.id, d + 1);
+                    tiles.get(i).distances.put(s, 1);
+                    queue.add(i);
+                }
+            }
+        }
+
     }
 
     public void addLinkedTile(int tile) {
