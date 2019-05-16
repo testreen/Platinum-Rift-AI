@@ -36,9 +36,18 @@ class Player {
 
         // Game loop
         int turn = 0;
+        int myHQ = -1;
+        int enemyHQ = -1;
         while (true) {
             turn++;
             String order = "";
+
+            // Calculate all distances
+            if(turn == 1){
+                for(int i = 0; i < zoneCount; i++){
+                    tiles.get(i).calcDistances(tiles);
+                }
+            }
 
             // Read turn data and update tiles
             int myPlatinum = in.nextInt(); // your available Platinum
@@ -54,11 +63,11 @@ class Player {
                 // Do turn 1 stuff (find headquarters)
                 if(turn == 1){
                     if(ownerId == myId){
-                        tiles.get(i).calcDistances(tiles);
                         tiles.get(i).myHQ = true;
+                        myHQ = i;
                     } else if (ownerId != -1){
                         tiles.get(i).enemyHQ = true;
-
+                        enemyHQ = i;
                     }
                 }
 
@@ -70,11 +79,7 @@ class Player {
                 }
 
             }
-            if(turn == 1){
-                for(int i = 0; i < zoneCount; i++){
-                    tiles.get(i).calcDistances(tiles);
-                }
-            }
+
 
             // Expand enemy towards not visible areas
             expandEnemy(tiles, zoneCount, myId);
@@ -84,6 +89,7 @@ class Player {
 
             // Move PODs
             for(int i=0;i<zoneCount;i++){
+                //System.err.println(i + ": " + tiles.get(i).fieldHQ + " : " + tiles.get(i).distances.get(18));
                 if(tiles.get(i).myUnits>0){
                     List<Integer> list = tiles.get(i).linkedTiles; // neighbours in list
                     List<Integer> next = new ArrayList<Integer>(); // list of moves from tile
@@ -92,6 +98,8 @@ class Player {
 
                     // initialize lists and best score
                     float bestScore = tiles.get(i).total_score;
+                    float bestHQfield = tiles.get(i).fieldHQ;
+                    int bestHQ = i;
                     int bestId = i;
                     int units = tiles.get(i).myUnits;
                     next.add(i);
@@ -101,13 +109,16 @@ class Player {
                     }
 
                     for(int l=0; l < list.size(); l++){
+                        //System.err.println(list.get(l) + ": " + tiles.get(list.get(l)).total_score + " : " + tiles.get(list.get(l)).chargeTiles );
                         // if neighbour is not under our control
                         if (tiles.get(list.get(l)).ownerId != myId) {
                             // if enemy unit is close, leave up to 4 units to avoid getting passed
-                            if(tiles.get(list.get(l)).enemyUnits > 1 && !tiles.get(list.get(l)).enemyHQ){
+                            if(tiles.get(list.get(l)).enemyUnits > 1 && (!tiles.get(list.get(l)).enemyHQ || tiles.get(i).myHQ)){
                                 for(int p=0; p < Math.min(4, tiles.get(list.get(l)).enemyUnits); p++){
-                                    //next.add(i);
+                                    next.add(i);
                                 }
+                            } else if(tiles.get(list.get(l)).enemyUnits == 1){
+                                //next.add(i);
                             }
                             // add not controlled area to list of moves
                             next.add(arr[l]);
@@ -122,6 +133,42 @@ class Player {
                             bestScore = tiles.get(list.get(l)).total_score;
                             bestId = list.get(l);
                             next.set(0, arr[l]);
+                        }
+
+                        if (tiles.get(list.get(l)).fieldHQ > bestHQfield){
+                            bestHQfield = tiles.get(list.get(l)).fieldHQ;
+                            bestHQ = list.get(l);
+                        }
+
+
+                    }
+                    if(bestScore < 0){
+                        next.set(0, bestHQ);
+                    }
+                    if(tiles.get(myHQ).distances.get(enemyHQ) < 5 || (zoneCount < 50 && tiles.get(myHQ).distances.get(enemyHQ) < 7)){
+                        next = new ArrayList<Integer>(); // list of moves from tile
+                        if(i == myHQ){
+
+
+                            if(tiles.get(i).myUnits >= 4){
+                                for(int p=0; p < 4; p++){
+                                    next.add(i);
+                                }
+                                for(int p=0; p < tiles.get(i).myUnits - 4; p++){
+                                    next.add(bestHQ);
+                                }
+                            } else if(tiles.get(i).myUnits > 1) {
+                                for(int p=0; p < tiles.get(i).myUnits - 1; p++){
+                                    next.add(bestHQ);
+                                }
+                                next.add(i);
+                            } else {
+                                next.add(i);
+                            }
+                        } else {
+                            for(int p=0; p < tiles.get(i).myUnits; p++){
+                                next.add(bestHQ);
+                            }
                         }
                     }
 
@@ -139,8 +186,10 @@ class Player {
                             j = next.get(0);
 
                             // if forced move
-                        } else {
+                        } else if(tiles.get(i).myUnits > 1 && next.size() > 1){
                             j = next.get(k);
+                        } else {
+                            j = next.get(0);
                         }
                         // to avoid error if staying in same tile
                         if(i != j){
@@ -156,23 +205,34 @@ class Player {
     }
 
     public static void updateFields(HashMap<Integer, Tile> tiles, int zoneCount, int myId){
-        float DECAY_TILES = -5f;
-        float DECAY_UNITS = -5f;
+        float DECAY_HQ = 0.99f;
+        float DECAY_MY_UNITS = 0.9f;
+        float DECAY_ENEMY_UNITS = 0.9f;
+        float DECAY_PLATINUM = 0.9f;
+        float DECAY_OWNER = 0.9f;
+        float DECAY_UNEXPLORED = 0.9f;
+
+
 
         for(int i = 0; i < zoneCount; i++){
             Tile currTile = tiles.get(i);
-            currTile.fieldTiles = new Field(tiles, currTile.chargeTiles, DECAY_TILES, i, myId, 5);
-            currTile.fieldUnits = new Field(tiles, currTile.chargeUnits, DECAY_UNITS, i, myId, 5);
 
             // add charges from field to total scores and reset values
             for(int j = 0; j < zoneCount; j++){
-                if(currTile.fieldTiles.charges.containsKey(j)){
-                    tiles.get(j).total_score += currTile.fieldTiles.charges.get(j);
-                }
-                if(currTile.fieldUnits.charges.containsKey(j)){
-                    tiles.get(j).total_score += currTile.fieldUnits.charges.get(j);
-                }
+                int d = currTile.distances.get(j);
+                currTile.fieldHQ += DECAY_HQ / (d + 1) * tiles.get(j).chargeHQ;
+                currTile.fieldMyUnits += DECAY_MY_UNITS / (d + 1) * tiles.get(j).chargeMyUnits;
+                currTile.fieldEnemyUnits += DECAY_ENEMY_UNITS / (d + 1) * tiles.get(j).chargeEnemyUnits;
+                currTile.fieldPlatinum += DECAY_PLATINUM / (d + 1) * tiles.get(j).chargePlatinum;
+                currTile.fieldOwner += DECAY_OWNER / (d + 1) * tiles.get(j).chargeOwner;
+                currTile.fieldUnexplored += DECAY_UNEXPLORED / (d + 1) * tiles.get(j).chargeUnexplored;
             }
+            currTile.total_score = currTile.fieldHQ +
+                    currTile.fieldMyUnits +
+                    currTile.fieldEnemyUnits +
+                    currTile.fieldPlatinum +
+                    currTile.fieldOwner +
+                    currTile.fieldUnexplored;
         }
 
     }
@@ -209,22 +269,30 @@ class Tile {
     public int platinumSource;
     public ArrayList<Integer> linkedTiles = new ArrayList<Integer>();
     public HashMap<Integer, Integer> distances = new HashMap<Integer, Integer>();
+
     int ownerId = -1;
     int myUnits = 0;
     int enemyUnits = 0;
     int visible = 0;
-    float charge = 0;
+
     int myId = 0;
     boolean enemyHQ = false;
     boolean myHQ = false;
     float total_score = 0;
-    int maxDistance = 5;
 
-    float chargeTiles = 0;
-    float chargeUnits = 0;
+    float chargeHQ = 0;
+    float chargeMyUnits = 0;
+    float chargeEnemyUnits = 0;
+    float chargePlatinum = 0;
+    float chargeOwner = 0;
+    float chargeUnexplored = 0;
 
-    public Field fieldTiles;
-    public Field fieldUnits;
+    float fieldHQ = 0;
+    float fieldMyUnits = 0;
+    float fieldEnemyUnits = 0;
+    float fieldPlatinum = 0;
+    float fieldOwner = 0;
+    float fieldUnexplored = 0;
 
 
     public Tile(int id, int platinumSource, int myId){
@@ -233,29 +301,8 @@ class Tile {
         this.myId = myId;
     }
 
-    public static int getDistance(int z1, int z2,HashMap<Integer, Tile> tiles){
-        HashMap<Integer, Integer> distances = new HashMap<Integer, Integer>();
-        for (int i : tiles.keySet()) {
-            distances.put(i,1000);
-        }
-        distances.put(z1,0);
-        for (int i : tiles.keySet()) {
-            for (int j : tiles.keySet()) {
-                int min=distances.get(j);
-                for (int k : tiles.get(j).linkedTiles) {
-                    if ((distances.get(k)+1)<min) {
-                        min=distances.get(k)+1;
-                    }
-                }
-                distances.put(j,min);
-            }
-        }
-        return distances.get(z2);
-    }
-
     public void calcDistances(HashMap<Integer, Tile> tiles){
         boolean[] visited = new boolean[tiles.size()];
-
 
         LinkedList<Integer> queue = new LinkedList<Integer>();
 
@@ -296,67 +343,61 @@ class Tile {
         this.myUnits = myUnits;
         this.visible = visible;
 
-        // Reset charge to only be affected by own values
+        this.fieldHQ = 0;
+        this.fieldMyUnits = 0;
+        this.fieldEnemyUnits = 0;
+        this.fieldPlatinum = 0;
+        this.fieldOwner = 0;
+        this.fieldUnexplored = 0;
+
+        // Reset fields to only be affected by own values
         updateCharge();
     }
 
     private void updateCharge(){
-        this.chargeTiles = 0;
-        this.chargeUnits = 0;
         if(this.myHQ){
-            this.chargeTiles -= 100;
+            this.chargeHQ = 00;
+            //this.fieldHQ = -100;
         } else if(this.enemyHQ){
-            this.chargeTiles = 100;
+            this.chargeHQ = 100;
+            //this.fieldHQ = 100;
         }
 
-        this.chargeUnits -= 5f * this.myUnits;
-        this.chargeUnits += 5f * this.enemyUnits;
+        this.chargeMyUnits = 0f * this.myUnits;
+        //this.fieldMyUnits = -5f * this.myUnits;
+
+        this.chargeEnemyUnits = 5f * this.enemyUnits;
+        //this.fieldEnemyUnits = 5f * this.enemyUnits;
 
         if(this.ownerId == -1){
-            this.chargeTiles += 20f;
-            this.chargeTiles += 2f * this.platinumSource;
+            this.chargeOwner = 0f;
+            //this.fieldOwner = 0f;
+
+            this.chargeUnexplored = 10f;
+            //this.fieldUnexplored = 10f;
+
+            this.chargePlatinum = 5f * this.platinumSource;
+            //this.fieldPlatinum = 2f * this.platinumSource;
+
         } else if(this.ownerId == this.myId){
-            this.chargeTiles -= 10f;
+            this.chargeOwner = 0f;
+            //this.fieldOwner = -5f;
+
+            this.chargeUnexplored = 0f;
+            //this.fieldUnexplored = 0f;
+
+            this.chargePlatinum = 0f * this.platinumSource;
+            //this.fieldPlatinum = 0f * this.platinumSource;
+
         } else {
-            this.chargeTiles += 15f;
-            this.chargeTiles += 2f * this.platinumSource;
-        }
+            this.chargeOwner = 10f;
+            //this.fieldOwner = 10f;
 
+            this.chargeUnexplored = 0f;
+            //this.fieldUnexplored = 0f;
 
-    }
-}
-
-class Field {
-    float charge = 0f;
-    float decay = 1f;
-    int myId = 0;
-    HashMap<Integer, Tile> tiles = new HashMap<Integer, Tile>();
-    public HashMap<Integer, Float> charges = new HashMap<Integer, Float>();
-
-    public Field(HashMap<Integer, Tile> tiles, float charge, float decay, int zId, int myId, int range){
-        this.tiles = tiles;
-        this.charge = charge;
-        this.decay = decay;
-        this.myId = myId;
-        charges.put(zId, charge);
-        this.spread(tiles, zId, charge, myId, range);
-    }
-
-    public void spread(HashMap<Integer, Tile> tiles, int id, float charge, int myId, int range){
-        if(range == 0){
-            return;
-        }
-        List<Integer> near = tiles.get(id).linkedTiles;
-        for(int i = 0; i < near.size(); i++){
-            if(charges.containsKey(tiles.get(near.get(i)))){
-                if(charges.get(near.get(i)) < charge - this.decay){
-                    charges.replace(near.get(i), charge - this.decay);
-                    this.spread(tiles, near.get(i), charge - this.decay, myId, range - 1);
-                }
-            } else {
-                charges.put(near.get(i), charge - this.decay);
-                this.spread(tiles, near.get(i), charge - this.decay, myId, range - 1);
-            }
+            this.chargePlatinum = 5f * this.platinumSource;
+            //this.fieldPlatinum = 2f * this.platinumSource;
         }
     }
 }
