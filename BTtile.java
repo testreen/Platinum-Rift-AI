@@ -53,6 +53,8 @@ abstract class Node {
     public static final String Success="success";
     public static final String Running="running";
     public static final String Failure="failure";
+    
+    public static int distance_rush=5;
 
 
     // The run function will return one of the three static stings that tell how the preocess is going
@@ -130,14 +132,26 @@ class ShouldWeRush extends Node {
 
     @java.lang.Override
     public String run(Tile unit) {
-        System.err.println("rushArmySize"+Integer.toString(GameState.rushArmySize));
-        if(GameState.tiles.get(GameState.myHQ).distances.get(GameState.enemyHQ)>4)
+        if(GameState.tiles.get(GameState.myHQ).distances.get(GameState.enemyHQ)>Node.distance_rush)
             return Node.Failure;
         if(GameState.rushArmySize<=1){
             System.err.println("Stopping rush");
             return Node.Failure;
         }
         return Node.Success;
+    }
+}
+
+class PostRush extends Node {
+    
+     @java.lang.Override
+    public String run(Tile unit) {
+       
+        if(GameState.tiles.get(GameState.myHQ).distances.get(GameState.enemyHQ)<=Node.distance_rush && GameState.rushArmySize<=1){
+            System.err.println("Post rush");
+            return Node.Success;
+        }
+        return Node.Failure;
     }
 }
 
