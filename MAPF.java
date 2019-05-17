@@ -16,10 +16,24 @@ class Player {
 
         // Read initial data
         HashMap<Integer, Tile> tiles = new HashMap<Integer, Tile>();
+        GameState.tiles=tiles;
+        Explore exploreNode = new Explore();
+        ExplorePostRush explorePostRushNode = new ExplorePostRush();
+        ShouldWeRush shouldWeRushNode = new ShouldWeRush(); 
+        PostRush postRushNode = new PostRush(); 
+        Rush rushNode = new Rush();
+        Node rushTree = new Sequence(new Node[]{shouldWeRushNode,rushNode});
+        Node mainTree = new Fallback(new Node[]{
+            shouldWeRushNode,
+            new Sequence(new Node[]{postRushNode,explorePostRushNode}),
+            exploreNode});
+        
         Scanner in = new Scanner(System.in);
         int playerCount = in.nextInt(); // the amount of players (always 2)
         int myId = in.nextInt(); // my player ID (0 or 1)
+        GameState.myId=myId;
         int zoneCount = in.nextInt(); // the amount of zones on the map
+        GameState.zoneCount=zoneCount;
         int linkCount = in.nextInt(); // the amount of links between all zones
         for (int i = 0; i < zoneCount; i++) {
             int zoneId = in.nextInt(); // this zone's ID (between 0 and zoneCount-1)
@@ -65,9 +79,12 @@ class Player {
                     if(ownerId == myId){
                         tiles.get(i).myHQ = true;
                         myHQ = i;
+                        GameState.myHQ=myHQ;
+                        tiles.get(i).role=Unit.NoRole;
                     } else if (ownerId != -1){
                         tiles.get(i).enemyHQ = true;
                         enemyHQ = i;
+                        GameState.enemyHQ=enemyHQ;
                     }
                 }
 
@@ -87,119 +104,19 @@ class Player {
             // Calculate field values spread over other tiles
             updateFields(tiles, zoneCount, myId);
 
+            
+            rushTree.run(tiles.get(myHQ));
+            
             // Move PODs
             for(int i=0;i<zoneCount;i++){
                 //System.err.println(i + ": " + tiles.get(i).fieldHQ + " : " + tiles.get(i).distances.get(18));
                 if(tiles.get(i).myUnits>0){
-                    List<Integer> list = tiles.get(i).linkedTiles; // neighbours in list
-                    List<Integer> next = new ArrayList<Integer>(); // list of moves from tile
-                    Integer[] arr = list.toArray(new Integer[list.size()]); // neighbours in array
-                    Random rand = new Random();
-
-                    // initialize lists and best score
-                    float bestScore = tiles.get(i).total_score;
-                    float bestHQfield = tiles.get(i).fieldHQ;
-                    int bestHQ = i;
-                    int bestId = i;
-                    int units = tiles.get(i).myUnits;
-                    next.add(i);
-                    // if > 10 units, save 2nd best tile too
-                    if(tiles.get(i).myUnits > 10){
-                        next.add(i);
-                    }
-
-                    for(int l=0; l < list.size(); l++){
-                        //System.err.println(list.get(l) + ": " + tiles.get(list.get(l)).total_score + " : " + tiles.get(list.get(l)).chargeTiles );
-                        // if neighbour is not under our control
-                        if (tiles.get(list.get(l)).ownerId != myId) {
-                            // if enemy unit is close, leave up to 4 units to avoid getting passed
-                            if(tiles.get(list.get(l)).enemyUnits > 1 && (!tiles.get(list.get(l)).enemyHQ || tiles.get(i).myHQ)){
-                                for(int p=0; p < Math.min(4, tiles.get(list.get(l)).enemyUnits); p++){
-                                    next.add(i);
-                                }
-                            } else if(tiles.get(list.get(l)).enemyUnits == 1){
-                                //next.add(i);
-                            }
-                            // add not controlled area to list of moves
-                            next.add(arr[l]);
-                        }
-
-                        // if new best tile to move to
-                        if (tiles.get(list.get(l)).total_score > bestScore) {
-                            // if over 10 units, also save a 2nd best
-                            if(tiles.get(i).myUnits > 10){
-                                next.set(1, next.get(0));
-                            }
-                            bestScore = tiles.get(list.get(l)).total_score;
-                            bestId = list.get(l);
-                            next.set(0, arr[l]);
-                        }
-
-                        if (tiles.get(list.get(l)).fieldHQ > bestHQfield){
-                            bestHQfield = tiles.get(list.get(l)).fieldHQ;
-                            bestHQ = list.get(l);
-                        }
-
-
-                    }
-                    if(bestScore < 0){
-                        next.set(0, bestHQ);
-                    }
-                    if(tiles.get(myHQ).distances.get(enemyHQ) < 5 || (zoneCount < 50 && tiles.get(myHQ).distances.get(enemyHQ) < 7)){
-                        next = new ArrayList<Integer>(); // list of moves from tile
-                        if(i == myHQ){
-
-
-                            if(tiles.get(i).myUnits >= 4){
-                                for(int p=0; p < 4; p++){
-                                    next.add(i);
-                                }
-                                for(int p=0; p < tiles.get(i).myUnits - 4; p++){
-                                    next.add(bestHQ);
-                                }
-                            } else if(tiles.get(i).myUnits > 1) {
-                                for(int p=0; p < tiles.get(i).myUnits - 1; p++){
-                                    next.add(bestHQ);
-                                }
-                                next.add(i);
-                            } else {
-                                next.add(i);
-                            }
-                        } else {
-                            for(int p=0; p < tiles.get(i).myUnits; p++){
-                                next.add(bestHQ);
-                            }
-                        }
-                    }
-
-                    // assign unit moves
-                    for(int k = 0; k < tiles.get(i).myUnits; k++){
-                        int j;
-                        // if only one unit in tile and has neighbors not under our control,
-                        // move to one of them randomly
-                        if(tiles.get(i).myUnits == 1 && next.size() > 1){
-                            j = next.get(rand.nextInt(next.size() - 1) + 1);
-                        }
-
-                        // if no more forced moves, move to best tile
-                        else if(k > next.size() - 1){
-                            j = next.get(0);
-
-                            // if forced move
-                        } else if(tiles.get(i).myUnits > 1 && next.size() > 1){
-                            j = next.get(k);
-                        } else {
-                            j = next.get(0);
-                        }
-                        // to avoid error if staying in same tile
-                        if(i != j){
-                            order += "1 " + Integer.toString(i) + " " + Integer.toString(j) + " ";
-                        }
-                    }
+                    mainTree.run(tiles.get(i));
                 }
             }
 
-            System.out.println(order);
+            System.out.println(Unit.order);
+            Unit.order="";
             System.out.println("WAIT");
         }
     }
@@ -208,7 +125,7 @@ class Player {
         float DECAY_HQ = 0.99f;
         float DECAY_MY_UNITS = 0.9f;
         float DECAY_ENEMY_UNITS = 0.9f;
-        float DECAY_PLATINUM = 0.9f;
+        float DECAY_PLATINUM = 0.3f;//0.9f;
         float DECAY_OWNER = 0.9f;
         float DECAY_UNEXPLORED = 0.9f;
 
@@ -293,6 +210,8 @@ class Tile {
     float fieldPlatinum = 0;
     float fieldOwner = 0;
     float fieldUnexplored = 0;
+    
+    String role=Unit.Explorer;
 
 
     public Tile(int id, int platinumSource, int myId){
