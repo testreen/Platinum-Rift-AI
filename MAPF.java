@@ -34,6 +34,7 @@ class Player {
         GameState.myId=myId;
         int zoneCount = in.nextInt(); // the amount of zones on the map
         GameState.zoneCount=zoneCount;
+        Unit.max_nb_explorer=(int) (zoneCount/40);
         int linkCount = in.nextInt(); // the amount of links between all zones
         for (int i = 0; i < zoneCount; i++) {
             int zoneId = in.nextInt(); // this zone's ID (between 0 and zoneCount-1)
@@ -122,12 +123,12 @@ class Player {
     }
 
     public static void updateFields(HashMap<Integer, Tile> tiles, int zoneCount, int myId){
-        float DECAY_HQ = 0.99f;
-        float DECAY_MY_UNITS = 0.9f;
+        float DECAY_HQ = 0.8f;//0.8
+        float DECAY_MY_UNITS = 0.4f;
         float DECAY_ENEMY_UNITS = 0.9f;
-        float DECAY_PLATINUM = 0.3f;//0.9f;
-        float DECAY_OWNER = 0.9f;
-        float DECAY_UNEXPLORED = 0.9f;
+        float DECAY_PLATINUM = 1.9f;//1.8f;//0.3f;//0.9f;
+        float DECAY_OWNER = 0.4f;
+        float DECAY_UNEXPLORED = 1.8f;
 
 
 
@@ -149,6 +150,13 @@ class Player {
                     currTile.fieldEnemyUnits +
                     currTile.fieldPlatinum +
                     currTile.fieldOwner +
+                    currTile.fieldUnexplored;
+            currTile.fighter_score = 2f*currTile.fieldHQ +
+                    0.3f*currTile.fieldMyUnits +
+                    2f*currTile.fieldEnemyUnits +
+                    currTile.fieldPlatinum +
+                    currTile.fieldOwner;
+            currTile.total_score = currTile.fieldPlatinum +
                     currTile.fieldUnexplored;
         }
 
@@ -196,6 +204,8 @@ class Tile {
     boolean enemyHQ = false;
     boolean myHQ = false;
     float total_score = 0;
+    float fighter_score = 0;
+    float explorer_score = 0;
 
     float chargeHQ = 0;
     float chargeMyUnits = 0;
@@ -211,7 +221,8 @@ class Tile {
     float fieldOwner = 0;
     float fieldUnexplored = 0;
     
-    String role=Unit.Explorer;
+    public String role=Unit.Explorer;
+    int nb_explorer=0;
 
 
     public Tile(int id, int platinumSource, int myId){
@@ -252,7 +263,7 @@ class Tile {
         this.linkedTiles.add(tile);
     }
 
-    public void update(int ownerId, int myUnits, int enemyUnits, int visible, int platinum)
+     public void update(int ownerId, int myUnits, int enemyUnits, int visible, int platinum)
     {
         if(visible == 1){
             this.ownerId = ownerId;
@@ -260,6 +271,7 @@ class Tile {
             this.platinumSource = platinum;
         }
         this.myUnits = myUnits;
+        this.enemyUnits = enemyUnits;
         this.visible = visible;
 
         this.fieldHQ = 0;
