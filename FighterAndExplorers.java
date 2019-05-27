@@ -20,27 +20,27 @@ class Player {
         Explore exploreNode = new Explore();
         ExplorePostRush explorePostRushNode = new ExplorePostRush();
         ShouldWeRush shouldWeRushNode = new ShouldWeRush();
-        
+
         ShouldIExplore shouldIExplore = new ShouldIExplore();
         ExploreSimple exploreSimple = new ExploreSimple();
         Fight fight = new Fight();
         CountExplorers countExplorers = new CountExplorers();
-        PostRush postRushNode = new PostRush(); 
+        PostRush postRushNode = new PostRush();
         Rush rushNode = new Rush();
         Node rushTree = new Sequence(new Node[]{countExplorers,shouldWeRushNode,rushNode});
         Node mainTree = new Fallback(new Node[]{
-            shouldWeRushNode,
-            new Sequence(new Node[]{postRushNode,explorePostRushNode}),
-            new Sequence(new Node[]{shouldIExplore,exploreNode}),
-            fight});
-        
+                shouldWeRushNode,
+                new Sequence(new Node[]{postRushNode,explorePostRushNode}),
+                new Sequence(new Node[]{shouldIExplore,exploreNode}),
+                fight});
+
         Scanner in = new Scanner(System.in);
         int playerCount = in.nextInt(); // the amount of players (always 2)
         int myId = in.nextInt(); // my player ID (0 or 1)
         GameState.myId=myId;
         int zoneCount = in.nextInt(); // the amount of zones on the map
         GameState.zoneCount=zoneCount;
-        Unit.max_nb_explorer=(int) (zoneCount/10);
+        Unit.max_nb_explorer=(int) (zoneCount/20);
         System.err.println(Unit.max_nb_explorer);
         int linkCount = in.nextInt(); // the amount of links between all zones
         for (int i = 0; i < zoneCount; i++) {
@@ -113,9 +113,17 @@ class Player {
             // Calculate field values spread over other tiles
             updateFields(tiles, zoneCount, myId);
 
-            
+            Unit.max_nb_explorer= 5;
+            for(int i = 0; i < zoneCount; i++){
+                if(tiles.get(i).ownerId == -1){
+                    Unit.max_nb_explorer += 1;
+                } else if(tiles.get(i).ownerId == GameState.myId){
+                    Unit.max_nb_explorer -= 1;
+                }
+            }
+
             rushTree.run(tiles.get(myHQ));
-            
+
             // Move PODs
             for(int i=0;i<zoneCount;i++){
                 //System.err.println(i + ": " + tiles.get(i).fieldHQ + " : " + tiles.get(i).distances.get(18));
@@ -160,13 +168,14 @@ class Player {
                     currTile.fieldOwner +
                     currTile.fieldUnexplored;
             currTile.fighter_score = 2.5f*currTile.fieldHQ +
-                    0.3f*currTile.fieldMyUnits +
+                    0f*currTile.fieldMyUnits +
                     5f*currTile.fieldEnemyUnits +
                     2f*currTile.fieldPlatinum +
                     0.5f*currTile.fieldOwner;
             currTile.explorer_score = -0.5f*currTile.fieldMyUnits+0.2f*currTile.fieldPlatinum +
                     5*currTile.fieldUnexplored+0.01f*currTile.fieldHQ-
-                    0.4f*currTile.fieldEnemyUnits;
+                    0.4f*currTile.fieldEnemyUnits +
+                    0.5f*currTile.fieldOwner;
         }
 
     }
@@ -230,7 +239,7 @@ class Tile {
     float fieldEnemyPlatinum = 0;
     float fieldOwner = 0;
     float fieldUnexplored = 0;
-    
+
     public String role=Unit.Explorer;
     int nb_explorer=0;
 
@@ -273,7 +282,7 @@ class Tile {
         this.linkedTiles.add(tile);
     }
 
-     public void update(int ownerId, int myUnits, int enemyUnits, int visible, int platinum)
+    public void update(int ownerId, int myUnits, int enemyUnits, int visible, int platinum)
     {
         if(visible == 1){
             this.ownerId = ownerId;
@@ -314,10 +323,10 @@ class Tile {
             this.chargeOwner = 0f;
             //this.fieldOwner = 0f;
 
-            this.chargeUnexplored = 10f;
+            this.chargeUnexplored = 2f * (this.linkedTiles.size() - 1);
             //this.fieldUnexplored = 10f;
 
-            this.chargePlatinum = 5f * this.platinumSource;
+            this.chargePlatinum = 10f * this.platinumSource;
             //this.fieldPlatinum = 2f * this.platinumSource;
 
         } else if(this.ownerId == this.myId){
@@ -328,7 +337,7 @@ class Tile {
             //this.fieldUnexplored = 0f;
 
             this.chargePlatinum = 0f * this.platinumSource;
-            //this.fieldPlatinum = 0f * this.platinumSource;
+            //this.fieldPlatinum = 0f * this.pexpandlatinumSource;
 
         } else {
             this.chargeOwner = 10f;
@@ -379,10 +388,10 @@ class Unit {
 
     public static final String Fighter = "fig";
     public static final String Explorer = "exp";
-    
+
     public static final String Rusher = "rusher";
     public static final String Defender = "defender";
-    
+
     public static final String NoRole = "none";
 
     // behavior trees
@@ -409,7 +418,7 @@ abstract class Node {
     public static final String Success="success";
     public static final String Running="running";
     public static final String Failure="failure";
-    
+
     public static int distance_rush=6;
 
 
@@ -512,8 +521,8 @@ class ShouldWeRush extends Node {
             System.err.println("Stopping rush");
             return Node.Failure;
         }
-        
-        if(GameState.turn>=GameState.tiles.get(GameState.myHQ).distances.get(GameState.enemyHQ)+6){
+
+        if(GameState.turn>=GameState.tiles.get(GameState.myHQ).distances.get(GameState.enemyHQ)+1){
             System.err.println("Stopping rush");
             return Node.Failure;
         }
@@ -522,11 +531,11 @@ class ShouldWeRush extends Node {
 }
 
 class PostRush extends Node {
-    
-     @java.lang.Override
+
+    @java.lang.Override
     public String run(Tile unit) {
-       
-        if(GameState.tiles.get(GameState.myHQ).distances.get(GameState.enemyHQ)<=Node.distance_rush && GameState.rushArmySize<=1){
+
+        if(GameState.tiles.get(GameState.myHQ).distances.get(GameState.enemyHQ)<=Node.distance_rush || GameState.rushArmySize<=1){
             System.err.println("Post rush");
             return Node.Success;
         }
@@ -569,23 +578,23 @@ class CountExplorers extends Node {
     public String run(Tile unit) {
         GameState.nbExplorers=0;
         HashMap<Integer, Integer> unit_list = new HashMap<Integer, Integer>();
-        
+
         for(int i=0; i<GameState.zoneCount;i++){
             GameState.tiles.get(i).role=Unit.Fighter;
             if(GameState.tiles.get(i).myUnits>0)
-                unit_list.put(GameState.tiles.get(i).distances.get(GameState.enemyHQ),i);
+                unit_list.put((int)GameState.tiles.get(i).explorer_score,i);
         }
-        
-        ArrayList<Integer> sortedKeys = new ArrayList<Integer>(unit_list.keySet()); 
-          
-        Collections.sort(sortedKeys); 
-        Collections.reverse(sortedKeys); 
-        
+
+        ArrayList<Integer> sortedKeys = new ArrayList<Integer>(unit_list.keySet());
+
+        Collections.sort(sortedKeys);
+        Collections.reverse(sortedKeys);
+
         for(int i=0; i<Math.min(Unit.max_nb_explorer,sortedKeys.size());i++){
             int j=unit_list.get(sortedKeys.get(i));
             GameState.tiles.get(j).role=Unit.Explorer;
         }
-        
+
         return Node.Success;
     }
 }
@@ -613,7 +622,7 @@ class Explore extends Node {
         }
 
         for(int l=0; l < list.size(); l++){
-            
+
             // if neighbour is not under our control
             if (GameState.tiles.get(list.get(l)).ownerId != GameState.myId) {
                 // if enemy unit is close, leave up to 4 units to avoid getting passed
@@ -621,29 +630,29 @@ class Explore extends Node {
                     for(int p=0; p < Math.min(4, GameState.tiles.get(list.get(l)).enemyUnits); p++){
                         next.add(i);
                     }
-                } else if(GameState.tiles.get(list.get(l)).enemyUnits == 1){
-                    //next.add(i);
+                } else if(GameState.tiles.get(list.get(l)).enemyUnits > 0 && GameState.tiles.get(i).platinumSource > 0){
+                    next.add(i);
                 }
                 // add not controlled area to list of moves
-                
-                
+
+
                 int count=0;
-                for(int n:GameState.tiles.get(list.get(l)).linkedTiles)
+                for(int n : GameState.tiles.get(list.get(l)).linkedTiles)
                 {
-                    if(n!=i && (GameState.tiles.get(n).platinumSource>0 || GameState.tiles.get(n).visible!=1))
+                    if(n != i && (GameState.tiles.get(n).platinumSource > 0 || GameState.tiles.get(n).visible != 1))
                     {
                         count++;
                         //System.err.println("Cell "+Integer.toString(i)+" cell counted: "+Integer.toString(n));
                     }
-                
+
                 }
                 //System.err.println("Cell "+Integer.toString(i)+" neighbor:"+Integer.toString(list.get(l))+" count: "+Integer.toString(count));
-                if(count!=0)
+                if(count != 0 || GameState.tiles.get(list.get(l)).platinumSource > 0) {
                     next.add(arr[l]);
-                    
+                }
                 //next.add(arr[l]);
             }
-            
+
 
             // if new best tile to move to
             if (GameState.tiles.get(list.get(l)).explorer_score > bestScore) {
@@ -673,7 +682,15 @@ class Explore extends Node {
             // if only one unit in tile and has neighbors not under our control,
             // move to one of them randomly
             if(GameState.tiles.get(i).myUnits == 1 && next.size() > 1){
-                j = next.get(rand.nextInt(next.size() - 1) + 1);
+                int bestPlat = 0;
+                int bestPlatIndex = rand.nextInt(next.size() - 1) + 1;
+                for(int l = 1; l < next.size(); l++){
+                    if(GameState.tiles.get(next.get(l)).platinumSource > bestPlat && GameState.tiles.get(next.get(l)).ownerId != GameState.myId){
+                        bestPlatIndex = l;
+                        bestPlat = GameState.tiles.get(next.get(l)).platinumSource;
+                    }
+                }
+                j = next.get(bestPlatIndex);
             }
 
             // if no more forced moves, move to best tile
@@ -692,9 +709,9 @@ class Explore extends Node {
                 GameState.tiles.get(j).role=Unit.Explorer;
             }
         }
-        
+
         return Node.Success;
-        
+
     }
 }
 
@@ -709,7 +726,7 @@ class ExploreSimple extends Node {
         Integer[] arr = list.toArray(new Integer[list.size()]); // neighbours in array
         Random rand = new Random();
         HashMap<Float, Integer> closeTiles = new HashMap<Float, Integer>();
-        
+
 
         // initialize lists and best score
         float bestScore = GameState.tiles.get(i).explorer_score;
@@ -724,14 +741,14 @@ class ExploreSimple extends Node {
             closeTiles.put(GameState.tiles.get(list.get(l)).explorer_score,list.get(l));
 
         }
-                           
-        
-                           
-        ArrayList<Float> sortedKeys = new ArrayList<Float>(closeTiles.keySet()); 
-          
-        Collections.sort(sortedKeys); 
-        Collections.reverse(sortedKeys);              
-       
+
+
+
+        ArrayList<Float> sortedKeys = new ArrayList<Float>(closeTiles.keySet());
+
+        Collections.sort(sortedKeys);
+        Collections.reverse(sortedKeys);
+
         // assign unit moves
         for(int k = 0; k < GameState.tiles.get(i).myUnits; k++){
             if(k<sortedKeys.size())
@@ -743,11 +760,11 @@ class ExploreSimple extends Node {
                 Unit.order += "1 " + Integer.toString(i) + " " + Integer.toString(closeTiles.get(sortedKeys.get(0))) + " ";
                 GameState.tiles.get(closeTiles.get(sortedKeys.get(0))).role=Unit.Explorer;
             }
-            
+
         }
-        
+
         return Node.Success;
-        
+
     }
 }
 
@@ -761,7 +778,7 @@ class Fight extends Node{
         Integer[] arr = list.toArray(new Integer[list.size()]); // neighbours in array
         Random rand = new Random();
         HashMap<Float, Integer> closeTiles = new HashMap<Float, Integer>();
-        
+
 
         // initialize lists and best score
         float bestScore = GameState.tiles.get(i).fighter_score;
@@ -776,21 +793,32 @@ class Fight extends Node{
             closeTiles.put(GameState.tiles.get(list.get(l)).fighter_score,list.get(l));
 
         }
-                           
-        
-                           
-        ArrayList<Float> sortedKeys = new ArrayList<Float>(closeTiles.keySet()); 
-          
-        Collections.sort(sortedKeys); 
-        Collections.reverse(sortedKeys);              
-       
+
+
+
+        ArrayList<Float> sortedKeys = new ArrayList<Float>(closeTiles.keySet());
+
+        Collections.sort(sortedKeys);
+        Collections.reverse(sortedKeys);
+
         // assign unit moves
-        Unit.order += Integer.toString(unit.myUnits)+" " + Integer.toString(i) + " " + Integer.toString(closeTiles.get(sortedKeys.get(0))) + " ";
-           GameState.tiles.get(closeTiles.get(sortedKeys.get(0))).role=Unit.Fighter;
-          
-        
+        int stay = 0;
+        if(GameState.tiles.get(i).platinumSource > 0){
+            for(int j = 0; j < GameState.tiles.get(i).linkedTiles.size(); j++){
+                stay += GameState.tiles.get(GameState.tiles.get(i).linkedTiles.get(j)).enemyUnits;
+            }
+        }
+        if(stay > 0 && stay < unit.myUnits){
+            Unit.order += Integer.toString(unit.myUnits - stay)+" " + Integer.toString(i) + " " + Integer.toString(closeTiles.get(sortedKeys.get(0))) + " ";
+            GameState.tiles.get(closeTiles.get(sortedKeys.get(0))).role=Unit.Fighter;
+        } else{
+            Unit.order += Integer.toString(unit.myUnits)+" " + Integer.toString(i) + " " + Integer.toString(closeTiles.get(sortedKeys.get(0))) + " ";
+            GameState.tiles.get(closeTiles.get(sortedKeys.get(0))).role=Unit.Fighter;
+        }
+
+
         return Node.Success;
-        
+
     }
 }
 
@@ -824,8 +852,8 @@ class ExplorePostRush extends Node {
                     for(int p=0; p < Math.min(4, GameState.tiles.get(list.get(l)).enemyUnits); p++){
                         next.add(i);
                     }
-                } else if(GameState.tiles.get(list.get(l)).enemyUnits == 1){
-                    //next.add(i);
+                } else if(GameState.tiles.get(list.get(l)).enemyUnits > 0 && GameState.tiles.get(i).platinumSource > 0){
+                    next.add(i);
                 }
                 // add not controlled area to list of moves
                 next.add(arr[l]);
@@ -859,7 +887,15 @@ class ExplorePostRush extends Node {
             // if only one unit in tile and has neighbors not under our control,
             // move to one of them randomly
             if(GameState.tiles.get(i).myUnits == 1 && next.size() > 1){
-                j = next.get(rand.nextInt(next.size() - 1) + 1);
+                int bestPlat = 0;
+                int bestPlatIndex = rand.nextInt(next.size() - 1) + 1;
+                for(int l = 1; l < next.size(); l++){
+                    if(GameState.tiles.get(next.get(l)).platinumSource > bestPlat && GameState.tiles.get(next.get(l)).ownerId != GameState.myId){
+                        bestPlatIndex = l;
+                        bestPlat = GameState.tiles.get(next.get(l)).platinumSource;
+                    }
+                }
+                j = next.get(bestPlatIndex);
             }
 
             // if no more forced moves, move to best tile
@@ -877,125 +913,9 @@ class ExplorePostRush extends Node {
                 Unit.order += "1 " + Integer.toString(i) + " " + Integer.toString(j) + " ";
             }
         }
-        
+
         return Node.Success;
-        
-    }
-}
 
-
-class ExploreOld extends Node {
-    @java.lang.Override
-    public String run(Tile unit) {
-        System.err.println("Exploring tile"+Integer.toString(unit.id));
-        int i =unit.id;
-        List<Integer> list = GameState.tiles.get(i).linkedTiles; // neighbours in list
-        List<Integer> next = new ArrayList<Integer>(); // list of moves from tile
-        Integer[] arr = list.toArray(new Integer[list.size()]); // neighbours in array
-        Random rand = new Random();
-
-        // initialize lists and best score
-        float bestScore = GameState.tiles.get(i).total_score;
-        float bestHQfield = GameState.tiles.get(i).fieldHQ;
-        int bestHQ = i;
-        int bestId = i;
-        int units = GameState.tiles.get(i).myUnits;
-        next.add(i);
-        // if > 10 units, save 2nd best tile too
-        if(GameState.tiles.get(i).myUnits > 10){
-            next.add(i);
-        }
-
-        for(int l=0; l < list.size(); l++){
-            // if neighbour is not under our control
-            if (GameState.tiles.get(list.get(l)).ownerId != GameState.myId) {
-                // if enemy unit is close, leave up to 4 units to avoid getting passed
-                if(GameState.tiles.get(list.get(l)).enemyUnits > 1 && (!GameState.tiles.get(list.get(l)).enemyHQ || GameState.tiles.get(i).myHQ)){
-                    for(int p=0; p < Math.min(4, GameState.tiles.get(list.get(l)).enemyUnits); p++){
-                        next.add(i);
-                    }
-                } else if(GameState.tiles.get(list.get(l)).enemyUnits == 1){
-                    //next.add(i);
-                }
-                // add not controlled area to list of moves
-                next.add(arr[l]);
-            }
-
-            // if new best tile to move to
-            if (GameState.tiles.get(list.get(l)).total_score > bestScore) {
-                // if over 10 units, also save a 2nd best
-                if(GameState.tiles.get(i).myUnits > 10){
-                    next.set(1, next.get(0));
-                }
-                bestScore = GameState.tiles.get(list.get(l)).total_score;
-                bestId = list.get(l);
-                next.set(0, arr[l]);
-            }
-
-            if (GameState.tiles.get(list.get(l)).fieldHQ > bestHQfield){
-                bestHQfield = GameState.tiles.get(list.get(l)).fieldHQ;
-                bestHQ = list.get(l);
-            }
-
-
-        }
-        if(bestScore < 0){
-            next.set(0, bestHQ);
-        }
-        if(GameState.tiles.get(GameState.myHQ).distances.get(GameState.enemyHQ) < 5 || (GameState.zoneCount < 50 && GameState.tiles.get(GameState.myHQ).distances.get(GameState.enemyHQ) < 7)){
-            next = new ArrayList<Integer>(); // list of moves from tile
-            if(i == GameState.myHQ){
-
-
-                if(GameState.tiles.get(i).myUnits >= 4){
-                    for(int p=0; p < 4; p++){
-                        next.add(i);
-                    }
-                    for(int p=0; p < GameState.tiles.get(i).myUnits - 4; p++){
-                        next.add(bestHQ);
-                    }
-                } else if(GameState.tiles.get(i).myUnits > 1) {
-                    for(int p=0; p < GameState.tiles.get(i).myUnits - 1; p++){
-                        next.add(bestHQ);
-                    }
-                    next.add(i);
-                } else {
-                    next.add(i);
-                }
-            } else {
-                for(int p=0; p < GameState.tiles.get(i).myUnits; p++){
-                    next.add(bestHQ);
-                }
-            }
-        }
-
-        // assign unit moves
-        for(int k = 0; k < GameState.tiles.get(i).myUnits; k++){
-            int j;
-            // if only one unit in tile and has neighbors not under our control,
-            // move to one of them randomly
-            if(GameState.tiles.get(i).myUnits == 1 && next.size() > 1){
-                j = next.get(rand.nextInt(next.size() - 1) + 1);
-            }
-
-            // if no more forced moves, move to best tile
-            else if(k > next.size() - 1){
-                j = next.get(0);
-
-                // if forced move
-            } else if(GameState.tiles.get(i).myUnits > 1 && next.size() > 1){
-                j = next.get(k);
-            } else {
-                j = next.get(0);
-            }
-            // to avoid error if staying in same tile
-            if(i != j){
-                Unit.order += "1 " + Integer.toString(i) + " " + Integer.toString(j) + " ";
-            }
-        }
-        
-        return Node.Success;
-        
     }
 }
 
@@ -1016,34 +936,34 @@ class Rush extends Node {
         int best=0;
         if(this.armyLoc!=GameState.enemyHQ)
         {
-        min=dist;
-        best=0;
-        list = GameState.tiles.get(armyLoc).linkedTiles;
-        for(int l=0; l < list.size(); l++){
-            if(GameState.tiles.get(list.get(l)).distances.get(GameState.enemyHQ)<=min) {
-                min=GameState.tiles.get(list.get(l)).distances.get(GameState.enemyHQ);
-                best=list.get(l);
+            min=dist;
+            best=0;
+            list = GameState.tiles.get(armyLoc).linkedTiles;
+            for(int l=0; l < list.size(); l++){
+                if(GameState.tiles.get(list.get(l)).distances.get(GameState.enemyHQ)<=min) {
+                    min=GameState.tiles.get(list.get(l)).distances.get(GameState.enemyHQ);
+                    best=list.get(l);
+                }
             }
+
+            GameState.rushArmySize=Math.min(6,GameState.tiles.get(armyLoc).myUnits);
+            GameState.theirRushArmySize=GameState.tiles.get(armyLoc).enemyUnits;
+            Unit.order += Integer.toString(Math.min(6,GameState.tiles.get(armyLoc).myUnits))+" " + Integer.toString(armyLoc) + " " + Integer.toString(best) + " ";
+            this.armyLoc=best;
         }
-        
-        GameState.rushArmySize=Math.min(6,GameState.tiles.get(armyLoc).myUnits);
-        GameState.theirRushArmySize=GameState.tiles.get(armyLoc).enemyUnits;
-        Unit.order += Integer.toString(Math.min(6,GameState.tiles.get(armyLoc).myUnits))+" " + Integer.toString(armyLoc) + " " + Integer.toString(best) + " ";
-        this.armyLoc=best;
-        }
-            
-        
+
+
         if(dist>1)
         {
             System.err.println("distance>1");
             ////////////////////////////////////////////////////////////////
             if(this.turn==1)
             {
-                System.err.println("if1");                
+                System.err.println("if1");
                 int i =unit.id;
                 list = GameState.tiles.get(i).linkedTiles; // neighbours in list
-                List<Integer> visited = new ArrayList<Integer>(); 
-                
+                List<Integer> visited = new ArrayList<Integer>();
+
                 int count=0;
                 for(int l=0; l < list.size(); l++){
                     if(!visited.contains(list.get(l)) && list.get(l)!=this.armyLoc && count<4) {
@@ -1056,7 +976,7 @@ class Rush extends Node {
                         break;
                 }
                 while(count<4){
-                    
+
                     for(int l=0; l < list.size(); l++){
                         visited.add(list.get(l));
                         Unit.order += "1 " + Integer.toString(i) + " " + Integer.toString(list.get(l)) + " ";
@@ -1065,8 +985,8 @@ class Rush extends Node {
                         if(count>=4)
                             break;
                     }
-        
-                    
+
+
                 }
             }
             else if(turn<=this.dist/2 && GameState.theirRushArmySize<GameState.rushArmySize)
@@ -1078,17 +998,17 @@ class Rush extends Node {
                     List<Integer> next = new ArrayList<Integer>(); // list of moves from tile
                     Integer[] arr = list.toArray(new Integer[list.size()]); // neighbours in array
                     Random rand = new Random();
-    
+
                     // initialize lists and best score
                     float bestScore = GameState.tiles.get(i).fieldPlatinum+GameState.tiles.get(i).fieldUnexplored;
                     float bestHQfield = GameState.tiles.get(i).fieldHQ;
                     int bestHQ = i;
                     int bestId = i;
                     int units = GameState.tiles.get(i).myUnits;
-    
+
                     for(int l=0; l < list.size(); l++){
-                        
-    
+
+
                         // if new best tile to move to
                         if (GameState.tiles.get(list.get(l)).fieldPlatinum+GameState.tiles.get(list.get(l)).fieldUnexplored > bestScore) {
                             // if over 10 units, also save a 2nd best
@@ -1102,17 +1022,17 @@ class Rush extends Node {
                             else
                                 next.add(arr[l]);
                         }
-    
+
                         if (GameState.tiles.get(list.get(l)).fieldHQ > bestHQfield){
                             bestHQfield = GameState.tiles.get(list.get(l)).fieldHQ;
                             bestHQ = list.get(l);
                         }
-    
-    
+
+
                     }
-    
+
                     // assign unit moves
-                    
+
                     int j=-1;
                     // if only one unit in tile and has neighbors not under our control,
                     // move to one of them randomly
@@ -1137,7 +1057,7 @@ class Rush extends Node {
                         Unit.order += "1 " + Integer.toString(i) + " " + Integer.toString(j) + " ";
                         this.explorer[m]=j;
                     }
-                    
+
                 }
             }
             else if(turn<=dist){
@@ -1154,11 +1074,11 @@ class Rush extends Node {
                     list = GameState.tiles.get(i).linkedTiles;
                     for(int l=0; l < list.size(); l++){
                         System.err.println("explorer "+Integer.toString(i)+"  focus "+Integer.toString(list.get(l)));
-                        
+
                         if(GameState.tiles.get(list.get(l)).distances.get(GameState.myHQ)<=min) {
                             min=GameState.tiles.get(list.get(l)).distances.get(GameState.myHQ);
                             best=list.get(l);
-                            }
+                        }
                         if(list.get(l)==GameState.myHQ) {
                             System.err.println("HQ found");
                             best=GameState.myHQ;
@@ -1171,10 +1091,10 @@ class Rush extends Node {
             }
             //////////////////////////////////////////////////////////////
         }
-        
-        
-        
-        return Node.Success;                      
+
+
+
+        return Node.Success;
     }
 }
 
